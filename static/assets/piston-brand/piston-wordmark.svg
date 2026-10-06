@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 292 72" role="img" aria-label="Piston">
+  <g fill="#FF5A1F">
+    <rect x="7" y="28" width="8" height="16" rx="4"/>
+    <rect x="20" y="18" width="8" height="36" rx="4"/>
+    <rect x="33" y="8" width="8" height="56" rx="4"/>
+    <rect x="46" y="18" width="8" height="36" rx="4"/>
+    <rect x="59" y="28" width="8" height="16" rx="4"/>
+  </g>
+  <text x="91" y="50" fill="#111827" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" letter-spacing="-1.5">Piston</text>
+</svg>

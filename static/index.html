@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Piston - Voice RAG Agent</title>
+  <link rel="icon" type="image/svg+xml" href="/static/assets/piston-brand/favicon.svg">
+  <link rel="icon" type="image/x-icon" href="/static/assets/piston-brand/favicon.ico">
+  <link rel="apple-touch-icon" sizes="192x192" href="/static/assets/piston-brand/piston-mark-192.png">
+  <link rel="stylesheet" href="/static/piston.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <button id="btn-menu-mobile" class="btn-icon-small mobile-only" aria-label="Menu" style="border: none;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 292 72" role="img" aria-label="Piston" width="146" height="36">
+          <g fill="var(--accent)">
+            <rect x="7" y="28" width="8" height="16" rx="4"/>
+            <rect x="20" y="18" width="8" height="36" rx="4"/>
+            <rect x="33" y="8" width="8" height="56" rx="4"/>
+            <rect x="46" y="18" width="8" height="36" rx="4"/>
+            <rect x="59" y="28" width="8" height="16" rx="4"/>
+          </g>
+          <text class="brand-text" x="91" y="50" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" letter-spacing="-1.5">Piston</text>
+        </svg>
+      </div>
+      <div class="top-actions">
+        <label for="doc-upload" class="btn-upload" tabindex="0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="desktop-only">Upload</span>
+        </label>
+        <input type="file" id="doc-upload" accept=".pdf,.txt,.md" style="display: none;" multiple>
+        <button id="btn-transcript" class="btn-settings mobile-only" aria-label="Transcript" style="border: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button id="btn-theme-toggle" class="btn-settings desktop-only" aria-label="Toggle Dark Mode">
+          <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="moon-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace" style="position: relative;">
+      
+      <!-- Uncollapse Handle -->
+      <button id="btn-uncollapse" class="btn-icon-small desktop-only" style="position: absolute; left: 16px; top: 16px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.3s; background: var(--bg-panel); border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05);" aria-label="Open Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <!-- Left Panel -->
+      <aside class="left-panel">
+        <div class="panel-header">
+          <h2>Your Documents</h2>
+          <button id="btn-menu-desktop" class="btn-icon-small" aria-label="Menu" style="border: none;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="doc-search" placeholder="Search documents...">
+        </div>
+        
+        <ul id="doc-list" class="doc-list" aria-live="polite">
+          <li class="empty-state">No documents uploaded.</li>
+        </ul>
+        
+        <div class="guide-container">
+          <button class="btn-guide" aria-label="Voice states guide" tabindex="0">?</button>
+          <div class="guide-popover">
+            <h4>Voice states</h4>
+            <ul>
+              <li>
+                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-idle" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#f4f4f5"/><stop offset="100%" stop-color="#e4e4e7"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-idle)"/></svg>
+                <div><strong>Idle</strong> — ready to start<br><span>Piston is waiting for input.</span></div>
+              </li>
+              <li>
+                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-listen" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fed7aa"/><stop offset="50%" stop-color="#fdba74"/><stop offset="100%" stop-color="#fb923c"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-listen)"/></svg>
+                <div><strong>Listening</strong> — capturing your voice<br><span>Your microphone is on.</span></div>
+              </li>
+              <li>
+                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-speak" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-speak)"/></svg>
+                <div><strong>Speaking</strong> — Piston is replying<br><span>You'll see a waveform while it speaks.</span></div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Stage -->
+      <section class="center-stage">
+        <div class="stage-header">
+          <h1 id="stage-title">Ready to start</h1>
+          <p id="stage-subtitle" aria-live="polite">Tap the orb or select a document</p>
+        </div>
+        
+        <div class="orb-container">
+          <button id="orb" class="orb state-idle" aria-label="Start Voice Session">
+             <div class="orb-core"></div>
+             <div class="orb-wave wave-1"></div>
+             <div class="orb-wave wave-2"></div>
+             <div class="orb-wave wave-3"></div>
+          </button>
+        </div>
+
+        <div class="context-selector" style="position: relative;">
+          <button class="btn-context" id="btn-context" aria-haspopup="listbox">
+            <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span id="active-context-name">Everything</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button class="btn-context-count" id="btn-context-count">
+            <span id="context-count">0 documents in context</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+
+          <!-- Context Dropdown -->
+          <div id="context-dropdown" class="context-dropdown">
+            <ul id="context-dropdown-list" class="doc-list" style="padding: 0;">
+              <li class="empty-state">No documents uploaded.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="voice-controls">
+          <button id="btn-mute" class="ctrl-btn" aria-label="Mute" disabled>
+            <div class="icon-circle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </div>
+            <span>Mute</span>
+          </button>
+          <button id="btn-interrupt" class="ctrl-btn" aria-label="Interrupt" disabled>
+            <div class="icon-circle">
+              <div class="icon-square"></div>
+            </div>
+            <span>Interrupt</span>
+          </button>
+          <button id="btn-end" class="ctrl-btn" aria-label="End session" disabled>
+            <div class="icon-circle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-7-7 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+            </div>
+            <span>End session</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Panel -->
+      <aside class="right-panel">
+        <div class="panel-header">
+          <h2>Live transcript</h2>
+          <div class="live-indicator">
+            <span class="dot"></span> Live
+            <div class="mini-waveform">
+               <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            </div>
+          </div>
+        </div>
+        <div id="transcript" class="transcript-scroll" aria-live="polite">
+           <div class="empty-transcript">Start speaking to see transcript</div>
+        </div>
+      </aside>
+      
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

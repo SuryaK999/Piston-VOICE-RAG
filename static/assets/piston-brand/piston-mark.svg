@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-label="Piston">
+  <g fill="#FF5A1F">
+    <rect x="7" y="28" width="8" height="16" rx="4"/>
+    <rect x="20" y="18" width="8" height="36" rx="4"/>
+    <rect x="33" y="8" width="8" height="56" rx="4"/>
+    <rect x="46" y="18" width="8" height="36" rx="4"/>
+    <rect x="59" y="28" width="8" height="16" rx="4"/>
+  </g>
+</svg>
