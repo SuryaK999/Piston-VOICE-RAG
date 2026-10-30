@@ -25,6 +25,8 @@ const FRAGMENT_SHADER_SRC = `
   precision highp float;
   varying vec2 v_uv;
 
+  uniform vec2 u_resolution;
+  uniform float u_radius;
   uniform float u_time;
   uniform float u_audio;
   uniform float u_state_thinking;
@@ -99,8 +101,11 @@ const FRAGMENT_SHADER_SRC = `
   }
 
   void main() {
-    // Coordinate space [-1.42, 1.42] so the sphere sits cleanly inside with room for the outer silk veil
-    vec2 p = (v_uv - 0.5) * 2.84;
+    // Pure isotropic center-relative physical pixel coordinates: r = 1.0 is exactly the sphere radius
+    vec2 center = u_resolution * 0.5;
+    vec2 pixelOffset = gl_FragCoord.xy - center;
+    pixelOffset.y = -pixelOffset.y; // Match screen top-down coordinate orientation
+    vec2 p = pixelOffset / max(1.0, u_radius);
     float r = length(p);
     float angle = atan(p.y, p.x);
 
@@ -274,8 +279,9 @@ const FRAGMENT_SHADER_SRC = `
 
     float sphereCoverage = smoothstep(1.0, 0.992, r);
     float edgeHalo = exp(-(1.0 - r) * 10.0) * 0.48;
+    float sphereAlpha = max(sphereCoverage, edgeHalo);
 
-    gl_FragColor = vec4(finalRGB, max(sphereCoverage, edgeHalo));
+    gl_FragColor = vec4(finalRGB * sphereAlpha, sphereAlpha);
   }
 `;
 
@@ -307,8 +313,8 @@ class VoiceOrbVisualizer {
 
     this.glCanvas = document.createElement('canvas');
     this.gl =
-      this.glCanvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: false }) ||
-      this.glCanvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: false });
+      this.glCanvas.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true }) ||
+      this.glCanvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: true });
 
     this.state = 'idle';
     this.isRunning = true;
@@ -420,6 +426,8 @@ class VoiceOrbVisualizer {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
     this.uniforms = {
+      u_resolution: gl.getUniformLocation(this.program, 'u_resolution'),
+      u_radius: gl.getUniformLocation(this.program, 'u_radius'),
       u_time: gl.getUniformLocation(this.program, 'u_time'),
       u_audio: gl.getUniformLocation(this.program, 'u_audio'),
       u_state_thinking: gl.getUniformLocation(this.program, 'u_state_thinking'),
@@ -642,11 +650,17 @@ class VoiceOrbVisualizer {
     const desiredScale = this.targetScale + breatheOsc + speechBoost;
     this.currentScale = lerp(this.currentScale, desiredScale, 0.09);
 
+    const cx = this.width * 0.5;
+    const cy = this.height * 0.5;
+    const currentRadius = this.baseRadius * this.currentScale;
+
     const gl = this.gl;
     if (gl && this.program) {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
 
+      gl.uniform2f(this.uniforms.u_resolution, this.glCanvas.width, this.glCanvas.height);
+      gl.uniform1f(this.uniforms.u_radius, currentRadius * this.dpr);
       gl.uniform1f(this.uniforms.u_time, this.fluidTime * 3.0);
       gl.uniform1f(this.uniforms.u_audio, this.smoothedAudio);
       gl.uniform1f(this.uniforms.u_state_thinking, this.thinkingWeight);
@@ -664,19 +678,8 @@ class VoiceOrbVisualizer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
 
-    const cx = this.width * 0.5;
-    const cy = this.height * 0.5;
-    const currentRadius = this.baseRadius * this.currentScale;
-
-    const quadSize = currentRadius * 2.84;
-    if (this.glCanvas.width > 0 && this.glCanvas.height > 0 && quadSize > 0) {
-      ctx.drawImage(
-        this.glCanvas,
-        cx - quadSize * 0.5,
-        cy - quadSize * 0.5,
-        quadSize,
-        quadSize
-      );
+    if (this.glCanvas.width > 0 && this.glCanvas.height > 0) {
+      ctx.drawImage(this.glCanvas, 0, 0, this.width, this.height);
     }
 
     this.drawMicroDustHalo(ctx, cx, cy, currentRadius);
