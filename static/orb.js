@@ -29,6 +29,7 @@ const FRAGMENT_SHADER_SRC = `
   uniform float u_audio;
   uniform float u_state_thinking;
   uniform float u_state_speaking;
+  uniform float u_state_idle;
   uniform float u_shockwave;
   uniform vec2 u_pointer;
 
@@ -102,12 +103,33 @@ const FRAGMENT_SHADER_SRC = `
     float r = length(p);
     float angle = atan(p.y, p.x);
 
-    // Reference Palette
-    vec3 colObsidian   = vec3(0.16, 0.07, 0.03);  // Deep smoky umber/sienna depth
-    vec3 colWarmAmber  = vec3(0.94, 0.50, 0.20);  // Rich warm orange-amber
-    vec3 colSoftPeach  = vec3(0.98, 0.68, 0.48);  // Creamy peach-apricot
-    vec3 colSoftGold   = vec3(1.00, 0.85, 0.48);  // Luminous warm gold
-    vec3 colChampagne  = vec3(1.00, 0.96, 0.86);  // Crisp champagne rim highlight
+    // 1. Solar Amber / Warm Gold Palette (Active Listening / Speaking)
+    vec3 baseObsidian   = vec3(0.16, 0.07, 0.03);  // Deep smoky umber/sienna depth
+    vec3 baseWarmAmber  = vec3(0.94, 0.50, 0.20);  // Rich warm orange-amber
+    vec3 baseSoftPeach  = vec3(0.98, 0.68, 0.48);  // Creamy peach-apricot
+    vec3 baseSoftGold   = vec3(1.00, 0.85, 0.48);  // Luminous warm gold
+    vec3 baseChampagne  = vec3(1.00, 0.96, 0.86);  // Crisp champagne rim highlight
+
+    // 2. Serene Opal / Warm Pearl Palette (Idle standby breathing)
+    vec3 idleObsidian   = vec3(0.13, 0.07, 0.04);
+    vec3 idleWarmAmber  = vec3(0.88, 0.52, 0.25);
+    vec3 idleSoftPeach  = vec3(0.94, 0.72, 0.56);
+    vec3 idleSoftGold   = vec3(0.96, 0.84, 0.62);
+    vec3 idleChampagne  = vec3(0.99, 0.96, 0.90);
+
+    // 3. Cosmic Purple / Electric Violet Palette (Searching knowledge base / RAG / Thinking)
+    vec3 purpleObsidian  = vec3(0.12, 0.03, 0.22); // Deep midnight plum depth
+    vec3 purpleWarmAmber = vec3(0.58, 0.20, 0.92); // Vivid royal violet
+    vec3 purpleSoftPeach = vec3(0.84, 0.32, 0.88); // Electric fuchsia / orchid
+    vec3 purpleSoftGold  = vec3(0.76, 0.56, 0.98); // Radiant lavender-lilac
+    vec3 purpleChampagne = vec3(0.97, 0.93, 1.00); // Shimmering crystal rim
+
+    // Smooth state-driven color palette morphing
+    vec3 colObsidian  = mix(mix(baseObsidian, idleObsidian, u_state_idle), purpleObsidian, u_state_thinking);
+    vec3 colWarmAmber = mix(mix(baseWarmAmber, idleWarmAmber, u_state_idle), purpleWarmAmber, u_state_thinking);
+    vec3 colSoftPeach = mix(mix(baseSoftPeach, idleSoftPeach, u_state_idle), purpleSoftPeach, u_state_thinking);
+    vec3 colSoftGold  = mix(mix(baseSoftGold, idleSoftGold, u_state_idle), purpleSoftGold, u_state_thinking);
+    vec3 colChampagne = mix(mix(baseChampagne, idleChampagne, u_state_idle), purpleChampagne, u_state_thinking);
 
     // Delicate, translucent outer silk wisps (just outside r = 1.0, like the reference left/right arcs)
     float wispWave1 = snoise(vec3(cos(angle) * 1.3, sin(angle) * 1.3, u_time * 0.28));
@@ -131,7 +153,7 @@ const FRAGMENT_SHADER_SRC = `
 
       // Base radial optical bloom around the crisp rim
       float halo = (exp(-distOut * 12.0) * 0.45 + exp(-distOut * 4.5) * 0.12) * edgeFade;
-      halo *= (1.0 + u_audio * 0.35 + u_state_speaking * 0.15);
+      halo *= (1.0 + u_audio * 0.35 + u_state_speaking * 0.15 + u_state_thinking * 0.25);
 
       // Gossamer silk veil Layer 1
       float veil1 = 0.0;
@@ -163,7 +185,7 @@ const FRAGMENT_SHADER_SRC = `
     vec2 tiltedXY = normal.xy - u_pointer * 0.12 * z;
 
     // Gentle vortex rotation during 'thinking' state
-    float swirl = u_state_thinking * (1.0 - z * 0.6) * 1.1;
+    float swirl = u_state_thinking * (1.0 - z * 0.6) * 1.35;
     mat2 rot = mat2(cos(swirl), -sin(swirl), sin(swirl), cos(swirl));
     tiltedXY = rot * tiltedXY;
 
@@ -183,14 +205,14 @@ const FRAGMENT_SHADER_SRC = `
     float ribbonA = smoothstep(-0.65, 0.70, foldPrimary);
     float ribbonB = smoothstep(-0.60, 0.65, foldSecondary);
 
-    // 1. Base warm amber-peach body
+    // 1. Base amber/peach/violet body
     vec3 interior = mix(colWarmAmber, colSoftPeach, ribbonB * 0.75);
 
-    // 2. Luminous soft-gold curves sweeping across the right/upper-right & lower-left
+    // 2. Luminous soft-gold/lavender curves sweeping across the right/upper-right & lower-left
     float goldMask = smoothstep(0.32, 0.88, ribbonA * 0.75 + (normal.x * 0.25 + normal.y * 0.15));
     interior = mix(interior, colSoftGold, goldMask * (0.82 + u_audio * 0.25 + u_state_speaking * 0.2));
 
-    // 3. Deep smoky umber/sienna depth pocket in the upper-left/center-top & lower-right interior
+    // 3. Deep smoky umber/plum depth pocket in the upper-left/center-top & lower-right interior
     float depthPocket1 = smoothstep(0.78, 0.0, length(tiltedXY - vec2(-0.14, 0.36)));
     float depthPocket2 = smoothstep(0.75, 0.0, length(tiltedXY - vec2(0.28, -0.32)));
     float shadowFactor = clamp(depthPocket1 * (0.72 - ribbonA * 0.35) + depthPocket2 * (0.45 - ribbonB * 0.25), 0.0, 0.78);
@@ -288,6 +310,7 @@ class VoiceOrbVisualizer {
 
     this.thinkingWeight = 0.0;
     this.speakingWeight = 0.0;
+    this.idleWeight = 1.0;
     this.shockwave = 0.0;
 
     this.pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
@@ -385,6 +408,7 @@ class VoiceOrbVisualizer {
       u_audio: gl.getUniformLocation(this.program, 'u_audio'),
       u_state_thinking: gl.getUniformLocation(this.program, 'u_state_thinking'),
       u_state_speaking: gl.getUniformLocation(this.program, 'u_state_speaking'),
+      u_state_idle: gl.getUniformLocation(this.program, 'u_state_idle'),
       u_shockwave: gl.getUniformLocation(this.program, 'u_shockwave'),
       u_pointer: gl.getUniformLocation(this.program, 'u_pointer'),
     };
@@ -539,7 +563,8 @@ class VoiceOrbVisualizer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    const orbitBoost = 1.0 + this.thinkingWeight * 2.5 + this.smoothedAudio * 1.2;
+    const orbitBoost = 1.0 + this.thinkingWeight * 3.2 + this.smoothedAudio * 1.2;
+    const isSearching = this.thinkingWeight > 0.05;
 
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
@@ -565,7 +590,7 @@ class VoiceOrbVisualizer {
 
       ctx.beginPath();
       ctx.arc(x, y, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
+      ctx.fillStyle = isSearching ? (i % 2 === 0 ? '#C084FC' : '#E9D5FF') : p.color;
       ctx.globalAlpha = Math.min(1, alpha);
       ctx.fill();
     }
@@ -588,6 +613,7 @@ class VoiceOrbVisualizer {
 
     this.thinkingWeight = lerp(this.thinkingWeight, this.state === 'thinking' ? 1.0 : 0.0, 0.04);
     this.speakingWeight = lerp(this.speakingWeight, this.state === 'speaking' ? 1.0 : 0.0, 0.07);
+    this.idleWeight = lerp(this.idleWeight, this.state === 'idle' ? 1.0 : 0.0, 0.05);
     this.shockwave = lerp(this.shockwave, 0.0, 0.06);
 
     this.pointer.x = lerp(this.pointer.x, this.pointer.targetX, 0.07);
@@ -607,6 +633,7 @@ class VoiceOrbVisualizer {
       gl.uniform1f(this.uniforms.u_audio, this.smoothedAudio);
       gl.uniform1f(this.uniforms.u_state_thinking, this.thinkingWeight);
       gl.uniform1f(this.uniforms.u_state_speaking, this.speakingWeight);
+      gl.uniform1f(this.uniforms.u_state_idle, this.idleWeight);
       gl.uniform1f(this.uniforms.u_shockwave, this.shockwave);
       gl.uniform2f(this.uniforms.u_pointer, this.pointer.x, this.pointer.y);
 
@@ -636,13 +663,34 @@ class VoiceOrbVisualizer {
     this.drawMicroDustHalo(ctx, cx, cy, currentRadius);
     ctx.restore();
 
+    const isDark = document.body && document.body.classList.contains('dark-mode');
     const bloomScale = this.currentScale + this.smoothedAudio * 0.16;
     const ambientBloomEl = document.getElementById('orb-ambient-bloom');
     const deepBloomEl = document.getElementById('orb-deep-bloom');
     if (ambientBloomEl && deepBloomEl) {
       ambientBloomEl.style.transform = `translate(-50%, -50%) scale(${bloomScale.toFixed(3)})`;
-      ambientBloomEl.style.opacity = (0.75 + this.smoothedAudio * 0.35).toFixed(2);
       deepBloomEl.style.transform = `translate(-50%, -50%) scale(${(1.0 + this.smoothedAudio * 0.12).toFixed(3)})`;
+
+      const baseAmbientOpacity = (isDark ? 0.75 : 0.45) + this.smoothedAudio * 0.35;
+      ambientBloomEl.style.opacity = baseAmbientOpacity.toFixed(2);
+      deepBloomEl.style.opacity = (isDark ? 0.90 : 0.55).toFixed(2);
+
+      // Adaptive color gradient: Cosmic Purple during Knowledge Base Search vs Solar Amber in other states
+      if (this.thinkingWeight > 0.05) {
+        ambientBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(192, 132, 252, 0.24) 0%, rgba(147, 51, 234, 0.14) 44%, rgba(147, 51, 234, 0) 72%)'
+          : 'radial-gradient(circle, rgba(192, 132, 252, 0.15) 0%, rgba(147, 51, 234, 0.08) 44%, rgba(147, 51, 234, 0) 72%)';
+        deepBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(126, 34, 206, 0.14) 0%, rgba(168, 85, 247, 0.05) 48%, rgba(126, 34, 206, 0) 74%)'
+          : 'radial-gradient(circle, rgba(126, 34, 206, 0.07) 0%, rgba(168, 85, 247, 0.03) 48%, rgba(126, 34, 206, 0) 74%)';
+      } else {
+        ambientBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(255, 209, 102, 0.19) 0%, rgba(245, 130, 49, 0.12) 44%, rgba(245, 130, 49, 0) 72%)'
+          : 'radial-gradient(circle, rgba(255, 209, 102, 0.14) 0%, rgba(245, 130, 49, 0.08) 44%, rgba(245, 130, 49, 0) 72%)';
+        deepBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(245, 130, 49, 0.11) 0%, rgba(255, 173, 135, 0.04) 48%, rgba(245, 130, 49, 0) 74%)'
+          : 'radial-gradient(circle, rgba(245, 130, 49, 0.07) 0%, rgba(255, 173, 135, 0.02) 48%, rgba(245, 130, 49, 0) 74%)';
+      }
     }
   }
 
