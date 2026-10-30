@@ -484,7 +484,7 @@ class VoiceOrbVisualizer {
       this.gl.viewport(0, 0, this.glCanvas.width, this.glCanvas.height);
     }
 
-    this.baseRadius = Math.min(this.width, this.height) * 0.31;
+    this.baseRadius = Math.min(this.width, this.height) * 0.345;
   }
 
   /**
