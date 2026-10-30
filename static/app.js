@@ -874,6 +874,9 @@ DOM.orb.addEventListener('click', () => {
     flushPlayback();
     setState('listening', 'Listening...', 'Capturing your voice');
     resetInactivityTimer();
+    if (orbVisualizer && orbVisualizer.triggerInterruptRipple) {
+      orbVisualizer.triggerInterruptRipple();
+    }
   }
 });
 
@@ -897,6 +900,9 @@ DOM.btnInterrupt.addEventListener('click', () => {
     flushPlayback();
     setState('listening', 'Listening...', 'Capturing your voice');
     resetInactivityTimer();
+    if (orbVisualizer && orbVisualizer.triggerInterruptRipple) {
+      orbVisualizer.triggerInterruptRipple();
+    }
   }
 });
 
