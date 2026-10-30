@@ -1,6 +1,12 @@
 from __future__ import annotations
 import operator
+import time
 from typing import Annotated, Callable, TypedDict
+
+from langgraph.graph import END, START, StateGraph
+
+from .kb import Chunk
+from .store import VectorStore
 
 def _merge_dicts(a: dict, b: dict) -> dict:
     c = a.copy()
@@ -9,12 +15,12 @@ def _merge_dicts(a: dict, b: dict) -> dict:
 
 """LangGraph RAG pipeline.
 
-    rewrite ──► retrieve ──► grade ──┬─ relevant ─► synthesize
-                                     └─ none ─────► no_answer
+    rewrite -> retrieve -> grade -+- relevant -> synthesize
+                                  +- none     -> no_answer
 
 Why a graph (instead of one "search" function):
   * rewrite: spoken queries are messy ("uh what does it say about the deadline")
-    — a rewrite step turns them into good retrieval queries.
+    - a rewrite step turns them into good retrieval queries.
   * grade:   the #1 failure mode of voice RAG is answering from
     irrelevant chunks. An explicit relevance gate lets the agent say
     "I don't have that information" instead of hallucinating.
@@ -24,13 +30,6 @@ Why a graph (instead of one "search" function):
 Each node records a trace step so the UI can show what the agent did.
 The LLM callable is injected, which keeps the graph testable offline.
 """
-
-import time
-
-from langgraph.graph import END, START, StateGraph
-
-from .kb import Chunk
-from .store import VectorStore
 
 # An LLM callable: (prompt: str) -> str
 LLMFn = Callable[[str], str]
@@ -42,6 +41,7 @@ RELEVANCE_FLOOR = 0.35  # cosine floor before we even ask the LLM to grade
 class RAGState(TypedDict, total=False):
     question: str                    # raw question from the voice agent
     query: str                       # rewritten retrieval query
+    doc_filter: str | None           # optional document filter
     hits: list[tuple[int, float]]    # (chunk index, score)
     chunks: list[Chunk]              # resolved chunks
     verdict: str                     # "relevant" | "none"
@@ -70,12 +70,14 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
 
     def retrieve(state: RAGState) -> RAGState:
         t0 = time.perf_counter()
-        results = store.search(state["query"], embed_fn, k=TOP_K)
+        doc_filter = state.get("doc_filter")
+        results = store.search(state["query"], embed_fn, k=TOP_K, doc_filter=doc_filter)
+        filter_str = f" [filter: {doc_filter}]" if doc_filter else ""
         return {
             "chunks": [c for c, _ in results],
             "hits": [(i, s) for i, (c, s) in enumerate(results)],
             "trace": [
-                "retrieve: " + ", ".join(f"{c.source_label} ({s:.2f})" for c, s in results)
+                f"retrieve{filter_str}: " + (", ".join(f"{c.source_label} ({s:.2f})" for c, s in results) if results else "no matching chunks")
             ],
             "latency_ms": {"retrieve": round((time.perf_counter() - t0) * 1000)},
         }
@@ -108,7 +110,7 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
         answer = llm(
             "Answer the QUESTION using ONLY the CONTEXT below, in at most 3 short "
             "sentences, in plain spoken English (it will be read aloud by a voice "
-            "agent — no markdown, no bullet points). If the context only partially "
+            "agent - no markdown, no bullet points). If the context only partially "
             "answers the question, answer what you can and say what is missing.\n\n"
             f"QUESTION: {state['question']}\n\nCONTEXT:\n{context}"
         ).strip()
@@ -157,9 +159,12 @@ class RAGService:
         self.embed_fn = embed_fn
         self.graph = build_graph(store, embed_fn, llm)
 
-    def ask(self, question: str) -> dict:
+    def ask(self, question: str, doc_filter: str | None = None) -> dict:
         """Run the full pipeline. Returns answer, sources, trace, latency."""
-        final = self.graph.invoke({"question": question})
+        payload = {"question": question}
+        if doc_filter:
+            payload["doc_filter"] = doc_filter
+        final = self.graph.invoke(payload)
         return {
             "answer": final["answer"],
             "sources": final.get("sources", []),
