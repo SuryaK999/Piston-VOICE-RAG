@@ -342,16 +342,26 @@ body {
 }
 .orb {
   position: relative;
-  width: clamp(180px, 40vh, 320px);
-  height: clamp(180px, 40vh, 320px);
+  width: clamp(200px, 42vh, 340px);
+  height: clamp(200px, 42vh, 340px);
   border: none;
   background: transparent;
   cursor: pointer;
   outline: none;
   border-radius: 50%;
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
-.orb:hover { transform: scale(1.02); }
+.orb:hover { transform: scale(1.025); }
+.orb:active { transform: scale(0.975); }
+.orb-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  z-index: 15;
+  pointer-events: none;
+}
 .orb-core {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   border-radius: 50%;
@@ -551,11 +561,77 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  position: relative;
+  transition: margin-right 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, border-color 0.3s ease;
+}
+.right-panel.collapsed {
+  margin-right: -320px;
 }
 .right-panel .panel-header {
   padding: 24px 20px 16px;
   display: flex; justify-content: space-between; align-items: center;
+}
+.right-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-panel-toggle {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-panel-toggle:hover {
+  background: var(--border-light);
+  color: var(--text-main);
+  border-color: var(--border);
+}
+
+/* Floating Uncollapse Handles */
+.btn-uncollapse-panel {
+  position: absolute;
+  top: 18px;
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.96);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-uncollapse-panel.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+.btn-uncollapse-panel:hover {
+  background: var(--border-light);
+  border-color: var(--text-muted);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+.btn-uncollapse-panel.left {
+  left: 16px;
+}
+.btn-uncollapse-panel.right {
+  right: 16px;
 }
 .right-panel .panel-header h2 { font-size: 0.95rem; font-weight: 600; margin: 0; }
 .live-indicator {
@@ -596,6 +672,7 @@ body {
   .left-panel { width: 240px; }
   .left-panel.collapsed { margin-left: -240px; }
   .right-panel { width: 280px; }
+  .right-panel.collapsed { margin-right: -280px; }
   .orb { width: clamp(160px, 35vh, 240px); height: clamp(160px, 35vh, 240px); }
 }
 @media (max-width: 768px) {
