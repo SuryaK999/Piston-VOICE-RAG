@@ -1,14 +1,18 @@
 /**
- * Piston Voice RAG - World-Class Canvas Visualizer Orb
- * High-fidelity 60FPS fluid audio-reactive visualizer inspired by modern state-of-the-art
- * AI interfaces (ChatGPT Advanced Voice, Apple Intelligence, Siri).
+ * Piston Voice RAG — Volumetric Frosted-Glass Voice Orb Visualizer
  *
- * Features:
- *  - Organic multi-octave harmonic fluid membrane with cubic bezier smoothing
- *  - Volumetric atmospheric lighting (casts deep cinematic aura on dark canvas)
- *  - Dynamic 3D specular light tracking cursor with spring physics
- *  - Audio-reactive acoustic ripple waves & floating particle sparkles
- *  - Zero-lag retina / high-DPI auto-scaling
+ * Implements a hyper-clean, minimal, 3D volumetric frosted-glass orb visualizer
+ * matching modern voice AI aesthetics (ChatGPT Advanced Voice / Siri / Gemini Live).
+ *
+ * Technical Specifications:
+ *  - High-DPI Canvas 2D engine with sub-pixel crispness
+ *  - Linear interpolation (lerp) for buttery-smooth state and audio reactivity
+ *  - No harsh solid outlines: soft Fresnel rim light feathering inward (28px)
+ *  - Internal volumetric fluid: 4 organic color blobs (Gold, Amber, Peach, Burnt Sienna)
+ *  - Translucent outer membrane: 2 delicate undulating wave layers
+ *  - Micro-particle halo: 80 micro-dust particles drifting at 1.02x to 1.25x radius
+ *  - Atmospheric multi-layered ambient bloom (50px inner, 120px wide bleed)
+ *  - 4 core states: idle, listening, thinking (searching), speaking
  */
 
 (function (window) {
@@ -17,13 +21,16 @@
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
   const lerp = (a, b, t) => a + (b - a) * t;
 
-  class OrbVisualizer {
+  class VoiceOrbVisualizer {
     constructor(canvas, options = {}) {
+      if (!canvas) {
+        throw new Error('VoiceOrbVisualizer requires a valid HTML5 canvas element.');
+      }
+
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d', { alpha: true });
       this.options = Object.assign({
-        maxParticles: 36,
-        baseDamping: 0.12,
+        particleCount: 80,
       }, options);
 
       this.width = 0;
@@ -31,41 +38,61 @@
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
       this.centerX = 0;
       this.centerY = 0;
-      this.baseRadius = 110;
+      this.baseRadius = 100;
 
-      // State management
-      this.state = 'idle'; // 'idle' | 'listening' | 'searching' | 'speaking' | 'error'
+      // State machine: 'idle' | 'listening' | 'thinking' | 'speaking' | 'error'
+      this.state = 'idle';
       this.targetState = 'idle';
 
-      // Audio RMS & reactivity
-      this.rms = 0;
-      this.smoothRms = 0;
-      this.energy = 0;
+      // Audio Reactivity with Linear Interpolation
+      this.audioLevel = 0.0;
+      this.targetAudioLevel = 0.0;
+      this.smoothedAudio = 0.0;
 
-      // 3D tilt tracking cursor
-      this.targetMouse = { x: 0, y: 0 };
-      this.mouse = { x: 0, y: 0 };
-      this.isHovered = false;
-
-      // Time & wave harmonics
+      // Fluid Simulation Clocks & Speeds
       this.time = 0;
+      this.fluidTime = 0;
+      this.membraneTime = 0;
+      this.vortexAngle = 0;
       this.lastTimestamp = performance.now();
 
-      // Zero-allocation particle pool
-      this.maxParticles = this.options.maxParticles;
-      this.particles = new Float32Array(this.maxParticles * 6); // [x, y, vx, vy, life, maxLife]
-      this.activeParticles = 0;
+      // Dynamic Animated Transform Scales
+      this.currentScale = 1.0;
+      this.targetScale = 1.0;
+      this.rimIntensity = 0.85;
+      this.targetRimIntensity = 0.85;
+      this.bloomIntensity = 1.0;
+      this.targetBloomIntensity = 1.0;
 
-      // Acoustic ripple rings
-      this.maxRipples = 4;
-      this.ripples = [];
-      for (let i = 0; i < this.maxRipples; i++) {
-        this.ripples.push({ radius: 0, opacity: 0, speed: 0, active: false });
-      }
+      // Interactive 3D Cursor Parallax
+      this.mouse = { x: 0, y: 0 };
+      this.targetMouse = { x: 0, y: 0 };
 
+      // Initialize Micro-Particle Halo
+      this.particles = [];
+      this.initParticles();
+
+      // Initialize Listeners & Animation Loop
       this.resize();
       this.initEvents();
       this.rafId = requestAnimationFrame(this.render.bind(this));
+    }
+
+    initParticles() {
+      this.particles = [];
+      const count = this.options.particleCount;
+      for (let i = 0; i < count; i++) {
+        this.particles.push({
+          angle: Math.random() * Math.PI * 2,
+          distRatio: 1.02 + Math.random() * 0.23, // 1.02x to 1.25x radius
+          speed: (0.003 + Math.random() * 0.008) * (Math.random() < 0.5 ? 1 : -1),
+          radialDriftSpeed: 0.8 + Math.random() * 1.5,
+          radialDriftAmp: 0.01 + Math.random() * 0.025,
+          size: 0.5 + Math.random() * 1.3,        // 0.5px to 1.8px
+          baseAlpha: 0.25 + Math.random() * 0.65,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
     }
 
     initEvents() {
@@ -78,15 +105,13 @@
           const rect = this.canvas.getBoundingClientRect();
           const px = (e.clientX - rect.left) / rect.width - 0.5;
           const py = (e.clientY - rect.top) / rect.height - 0.5;
-          this.targetMouse.x = clamp(px * 2, -1, 1);
-          this.targetMouse.y = clamp(py * 2, -1, 1);
-          this.isHovered = true;
+          this.targetMouse.x = clamp(px * 1.8, -0.7, 0.7);
+          this.targetMouse.y = clamp(py * 1.8, -0.7, 0.7);
         });
 
         parent.addEventListener('pointerleave', () => {
           this.targetMouse.x = 0;
           this.targetMouse.y = 0;
-          this.isHovered = false;
         });
       }
     }
@@ -107,353 +132,453 @@
 
       this.centerX = w / 2;
       this.centerY = h / 2;
-      // Core fills ~44% of the container, leaving room for radiant bloom
-      this.baseRadius = Math.min(w, h) * 0.40;
+      // Core sphere fills ~38% of container leaving safe margin for 1.25x halo & 120px bloom
+      this.baseRadius = Math.min(w, h) * 0.36;
     }
 
     setState(newState) {
+      // Accept 'searching' as an alias for 'thinking'
+      if (newState === 'searching') newState = 'thinking';
       if (this.state === newState) return;
       this.state = newState;
     }
 
     setAudioLevel(rms) {
-      this.rms = clamp(rms || 0, 0, 1);
-    }
-
-    triggerRipple(speed = 2.2) {
-      for (let i = 0; i < this.maxRipples; i++) {
-        const r = this.ripples[i];
-        if (!r.active) {
-          r.active = true;
-          r.radius = this.baseRadius * 0.95;
-          r.opacity = 0.6;
-          r.speed = speed;
-          break;
-        }
-      }
-    }
-
-    spawnParticle(angle, speed, dist, life) {
-      if (this.activeParticles >= this.maxParticles) return;
-      const idx = this.activeParticles * 6;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      this.particles[idx + 0] = this.centerX + cos * dist;
-      this.particles[idx + 1] = this.centerY + sin * dist;
-      this.particles[idx + 2] = cos * speed;
-      this.particles[idx + 3] = sin * speed;
-      this.particles[idx + 4] = life;
-      this.particles[idx + 5] = life;
-      this.activeParticles++;
-    }
-
-    updateParticles(dt) {
-      for (let i = 0; i < this.activeParticles; i++) {
-        const idx = i * 6;
-        this.particles[idx + 4] -= dt;
-        if (this.particles[idx + 4] <= 0) {
-          const lastIdx = (this.activeParticles - 1) * 6;
-          for (let k = 0; k < 6; k++) {
-            this.particles[idx + k] = this.particles[lastIdx + k];
-          }
-          this.activeParticles--;
-          i--;
-          continue;
-        }
-        this.particles[idx + 0] += this.particles[idx + 2] * dt;
-        this.particles[idx + 1] += this.particles[idx + 3] * dt;
-      }
-    }
-
-    updateRipples(dt) {
-      for (let i = 0; i < this.maxRipples; i++) {
-        const r = this.ripples[i];
-        if (r.active) {
-          r.radius += r.speed * dt * 60;
-          r.opacity -= dt * 0.65;
-          if (r.opacity <= 0 || r.radius > this.baseRadius * 1.85) {
-            r.active = false;
-          }
-        }
-      }
-    }
-
-    getThemeColors() {
-      switch (this.state) {
-        case 'listening':
-          return {
-            coreCenter: '#fffbf5',
-            coreGlow: '#fed7aa',
-            coreMid: '#f97316',
-            coreEdge: '#c2410c',
-            deepBase: '#7c2d12',
-            aura: 'rgba(249, 115, 22, 0.42)',
-            rim: 'rgba(255, 237, 213, 0.90)',
-            rippleColor: 'rgba(251, 146, 60, 0.4)',
-            glowSize: 1.95,
-          };
-        case 'speaking':
-          return {
-            coreCenter: '#ffffff',
-            coreGlow: '#ffedd5',
-            coreMid: '#fb923c',
-            coreEdge: '#ea580c',
-            deepBase: '#9a3412',
-            aura: 'rgba(234, 88, 12, 0.55)',
-            rim: 'rgba(255, 255, 255, 0.95)',
-            rippleColor: 'rgba(249, 115, 22, 0.6)',
-            glowSize: 2.15,
-          };
-        case 'searching':
-          return {
-            coreCenter: '#faf5ff',
-            coreGlow: '#e9d5ff',
-            coreMid: '#a855f7',
-            coreEdge: '#7e22ce',
-            deepBase: '#581c87',
-            aura: 'rgba(168, 85, 247, 0.45)',
-            rim: 'rgba(245, 208, 254, 0.85)',
-            rippleColor: 'rgba(192, 132, 252, 0.45)',
-            glowSize: 1.90,
-          };
-        case 'error':
-          return {
-            coreCenter: '#fef2f2',
-            coreGlow: '#fecaca',
-            coreMid: '#ef4444',
-            coreEdge: '#b91c1c',
-            deepBase: '#7f1d1d',
-            aura: 'rgba(239, 68, 68, 0.42)',
-            rim: 'rgba(254, 202, 202, 0.85)',
-            rippleColor: 'rgba(248, 113, 113, 0.4)',
-            glowSize: 1.80,
-          };
-        case 'idle':
-        default:
-          return {
-            coreCenter: '#ffffff',
-            coreGlow: '#f8fafc',
-            coreMid: '#e2e8f0',
-            coreEdge: '#94a3b8',
-            deepBase: '#475569',
-            aura: 'rgba(255, 255, 255, 0.12)',
-            rim: 'rgba(255, 255, 255, 0.80)',
-            rippleColor: 'rgba(255, 255, 255, 0.15)',
-            glowSize: 1.60,
-          };
-      }
+      this.targetAudioLevel = clamp(rms || 0, 0, 1);
     }
 
     render(timestamp) {
       const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
       this.lastTimestamp = timestamp;
+      this.time += dt;
 
-      // Smooth audio RMS response (fast rise, smooth decay)
-      const smoothingFactor = this.rms > this.smoothRms ? 0.35 : 0.14;
-      this.smoothRms = lerp(this.smoothRms, this.rms, smoothingFactor);
+      // -------------------------------------------------------------
+      // Linear Interpolation (lerp) for Buttery-Smooth Dynamics
+      // -------------------------------------------------------------
+      this.audioLevel = lerp(this.audioLevel, this.targetAudioLevel, 0.12);
+      this.smoothedAudio = lerp(this.smoothedAudio, this.audioLevel, 0.15);
 
-      // Trigger ripple and sparkles on strong voice spikes
-      if (this.smoothRms > 0.18 && Math.random() < 0.28) {
-        this.triggerRipple(2.2 + this.smoothRms * 2);
-        const angle = Math.random() * Math.PI * 2;
-        this.spawnParticle(angle, 25 + Math.random() * 35, this.baseRadius * 0.95, 0.6 + Math.random() * 0.4);
-      }
-
-      // Smooth cursor 3D depth tracking
       this.mouse.x = lerp(this.mouse.x, this.targetMouse.x, 0.08);
       this.mouse.y = lerp(this.mouse.y, this.targetMouse.y, 0.08);
 
-      // Wave animation speed tied to voice activity
-      const speedMultiplier = 1.0 + (this.smoothRms * 3.5);
-      this.time += dt * speedMultiplier;
+      // State Parameters
+      let fluidSpeed = 0.004;
+      let membraneSpeed = 1.0;
+      let vortexSpeed = 0.0;
+      let targetScale = 1.0;
+      let targetRimIntensity = 0.85;
+      let targetBloomIntensity = 1.0;
 
-      this.updateParticles(dt);
-      this.updateRipples(dt);
+      switch (this.state) {
+        case 'listening':
+          // Base scale expands smoothly to 1.05; rim light intensifies; reacts to audio
+          targetScale = 1.05 + this.audioLevel * 0.06;
+          targetRimIntensity = 0.95 + this.audioLevel * 0.35;
+          targetBloomIntensity = 1.15 + this.audioLevel * 0.45;
+          fluidSpeed = 0.006 + this.audioLevel * 0.022;
+          membraneSpeed = 1.6 + this.audioLevel * 2.8;
+          break;
 
-      // Clear frame
+        case 'thinking':
+          // Internal fluid turbulence speeds up; rotational vortex effect
+          targetScale = 1.03 + Math.sin(this.time * 3.5) * 0.015;
+          targetRimIntensity = 0.90;
+          targetBloomIntensity = 1.2;
+          fluidSpeed = 0.018;
+          membraneSpeed = 2.4;
+          vortexSpeed = 0.025;
+          break;
+
+        case 'speaking':
+          // Rhythmic core brightness and scale pulsing synced to output audio amplitude
+          targetScale = 1.0 + this.smoothedAudio * 0.18;
+          targetRimIntensity = 0.90 + this.smoothedAudio * 0.40;
+          targetBloomIntensity = 1.25 + this.smoothedAudio * 0.75;
+          fluidSpeed = 0.010 + this.smoothedAudio * 0.025;
+          membraneSpeed = 2.2 + this.smoothedAudio * 3.5;
+          break;
+
+        case 'error':
+          targetScale = 0.98;
+          targetRimIntensity = 0.80;
+          targetBloomIntensity = 0.9;
+          fluidSpeed = 0.003;
+          membraneSpeed = 0.8;
+          break;
+
+        case 'idle':
+        default:
+          // Slow, hypnotic internal fluid swirl; gentle breathing scale (0.98 to 1.02 over 4s)
+          const breathing = Math.sin(this.time * (Math.PI * 2 / 4.0)) * 0.02;
+          targetScale = 1.0 + breathing;
+          targetRimIntensity = 0.80;
+          targetBloomIntensity = 0.95;
+          fluidSpeed = 0.004;
+          membraneSpeed = 1.0;
+          break;
+      }
+
+      this.currentScale = lerp(this.currentScale, targetScale, 0.09);
+      this.rimIntensity = lerp(this.rimIntensity, targetRimIntensity, 0.10);
+      this.bloomIntensity = lerp(this.bloomIntensity, targetBloomIntensity, 0.10);
+
+      this.fluidTime += dt * fluidSpeed * 60;
+      this.membraneTime += dt * membraneSpeed;
+      this.vortexAngle += vortexSpeed;
+
+      // Clear Frame
       this.ctx.clearRect(0, 0, this.width, this.height);
 
-      const colors = this.getThemeColors();
-      
-      // Dynamic breathing radius
-      const breathOffset = this.state === 'idle' ? Math.sin(this.time * 1.8) * 0.025 : 0;
-      const currentRadius = this.baseRadius * (1 + this.smoothRms * 0.22 + breathOffset);
-
-      // 3D light offset from cursor
-      const lightOffsetX = this.centerX + (this.mouse.x * currentRadius * 0.22) - (currentRadius * 0.18);
-      const lightOffsetY = this.centerY + (this.mouse.y * currentRadius * 0.22) - (currentRadius * 0.20);
+      const cx = this.centerX;
+      const cy = this.centerY;
+      const r = this.baseRadius * this.currentScale;
 
       // -------------------------------------------------------------
-      // 1. Cinematic Volumetric Atmospheric Aura (Backlight bloom)
+      // 1. Atmospheric Multi-Layered Outer Bloom
       // -------------------------------------------------------------
-      const auraRadius = currentRadius * (colors.glowSize + this.smoothRms * 0.35);
-      const auraGrad = this.ctx.createRadialGradient(
-        this.centerX, this.centerY, currentRadius * 0.35,
-        this.centerX, this.centerY, auraRadius
-      );
-      auraGrad.addColorStop(0, colors.aura);
-      auraGrad.addColorStop(0.55, colors.aura.replace(/[\d\.]+\)$/, '0.12)'));
-      auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.drawAtmosphericBloom(cx, cy, r);
+
+      // -------------------------------------------------------------
+      // 2. Micro-Particle Halo (Floating micro-dust: 1.02x to 1.25x)
+      // -------------------------------------------------------------
+      this.drawParticleHalo(cx, cy, r, dt, vortexSpeed);
+
+      // -------------------------------------------------------------
+      // 3. Translucent Outer Membrane (2 delicate undulating wave layers)
+      // -------------------------------------------------------------
+      this.drawOuterMembrane(cx, cy, r);
+
+      // -------------------------------------------------------------
+      // 4. Volumetric Frosted Glass Sphere (Clipped to circular mask)
+      // -------------------------------------------------------------
+      this.drawVolumetricGlassSphere(cx, cy, r);
+
+      // -------------------------------------------------------------
+      // 5. Delicate 3D Specular Glint & Reflection Arc
+      // -------------------------------------------------------------
+      this.drawSpecularGlint(cx, cy, r);
+
+      this.rafId = requestAnimationFrame(this.render.bind(this));
+    }
+
+    /**
+     * Layer 1: Atmospheric Outer Bloom
+     * Multi-layered ambient drop glow against dark background:
+     *  - Inner bloom: 0 0 50px rgba(245, 130, 49, 0.35)
+     *  - Wide ambient bleed: 0 0 120px rgba(255, 209, 102, 0.12)
+     */
+    drawAtmosphericBloom(cx, cy, r) {
+      const isError = this.state === 'error';
+      const bloomScale = this.bloomIntensity;
+
+      // Wide ambient bleed (120px)
+      const wideRadius = r + 120 * bloomScale;
+      const wideGrad = this.ctx.createRadialGradient(cx, cy, r * 0.65, cx, cy, wideRadius);
+      if (isError) {
+        wideGrad.addColorStop(0, 'rgba(239, 68, 68, 0.18)');
+        wideGrad.addColorStop(0.5, 'rgba(220, 38, 38, 0.06)');
+        wideGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else {
+        wideGrad.addColorStop(0, `rgba(255, 209, 102, ${0.12 * bloomScale})`);
+        wideGrad.addColorStop(0.55, `rgba(245, 130, 49, ${0.05 * bloomScale})`);
+        wideGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      }
 
       this.ctx.save();
-      this.ctx.fillStyle = auraGrad;
+      this.ctx.fillStyle = wideGrad;
       this.ctx.beginPath();
-      this.ctx.arc(this.centerX, this.centerY, auraRadius, 0, Math.PI * 2);
+      this.ctx.arc(cx, cy, wideRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Inner concentrated bloom (50px)
+      const innerRadius = r + 50 * bloomScale;
+      const innerGrad = this.ctx.createRadialGradient(cx, cy, r * 0.75, cx, cy, innerRadius);
+      if (isError) {
+        innerGrad.addColorStop(0, 'rgba(239, 68, 68, 0.35)');
+        innerGrad.addColorStop(0.7, 'rgba(220, 38, 38, 0.10)');
+        innerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else {
+        innerGrad.addColorStop(0, `rgba(245, 130, 49, ${0.35 * bloomScale})`);
+        innerGrad.addColorStop(0.75, `rgba(245, 130, 49, ${0.08 * bloomScale})`);
+        innerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      }
+
+      this.ctx.fillStyle = innerGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
+    }
 
-      // -------------------------------------------------------------
-      // 2. Acoustic Radiant Ripple Rings
-      // -------------------------------------------------------------
-      for (let i = 0; i < this.maxRipples; i++) {
-        const r = this.ripples[i];
-        if (r.active) {
-          this.ctx.save();
-          this.ctx.strokeStyle = colors.rippleColor.replace(/[\d\.]+\)$/, `${r.opacity * 0.75})`);
-          this.ctx.lineWidth = 1.8;
-          this.ctx.beginPath();
-          this.ctx.arc(this.centerX, this.centerY, r.radius, 0, Math.PI * 2);
-          this.ctx.stroke();
-          this.ctx.restore();
-        }
-      }
-
-      // -------------------------------------------------------------
-      // 3. Fluid Organic Membrane (Cubic Bezier Spline)
-      // -------------------------------------------------------------
-      const segments = 48;
-      const angleStep = (Math.PI * 2) / segments;
-      const coords = [];
-
-      let waveAmp1 = 0.02;
-      let waveAmp2 = 0.012;
-      let waveSpeed = 1.2;
-
-      if (this.state === 'listening') {
-        waveAmp1 = 0.035 + this.smoothRms * 0.14;
-        waveAmp2 = 0.022 + this.smoothRms * 0.09;
-        waveSpeed = 2.4;
-      } else if (this.state === 'speaking') {
-        waveAmp1 = 0.05 + this.smoothRms * 0.20;
-        waveAmp2 = 0.035 + this.smoothRms * 0.12;
-        waveSpeed = 3.6;
-      } else if (this.state === 'searching') {
-        waveAmp1 = 0.045;
-        waveAmp2 = 0.03;
-        waveSpeed = 3.0;
-      }
-
-      for (let i = 0; i <= segments; i++) {
-        const theta = i * angleStep;
-        const wave1 = Math.sin(theta * 3 + this.time * waveSpeed) * waveAmp1;
-        const wave2 = Math.cos(theta * 5 - this.time * waveSpeed * 0.9) * waveAmp2;
-        const wave3 = Math.sin(theta * 2 + this.time * 0.7) * 0.015;
-        const r = currentRadius * (1 + wave1 + wave2 + wave3);
-
-        coords.push({
-          x: this.centerX + Math.cos(theta) * r,
-          y: this.centerY + Math.sin(theta) * r
-        });
-      }
+    /**
+     * Layer 2: Micro-Particle Halo
+     * 60-100 tiny micro-dust particles (0.5px to 1.8px, #FFE8B3) floating and slowly
+     * drifting in the immediate outer glow radius (1.02x to 1.25x), fading out via distance.
+     */
+    drawParticleHalo(cx, cy, r, dt, vortexSpeed) {
+      const isError = this.state === 'error';
+      const particleBaseColor = isError ? '254, 202, 202' : '255, 232, 179';
 
       this.ctx.save();
+      for (let i = 0; i < this.particles.length; i++) {
+        const p = this.particles[i];
+
+        // Angular drift + vortex effect
+        p.angle += (p.speed + vortexSpeed) * dt * 60;
+
+        // Subtle radial breathing drift
+        const radialPulse = Math.sin(this.time * p.radialDriftSpeed + p.phase) * p.radialDriftAmp;
+        const currentDistRatio = p.distRatio + radialPulse;
+        const dist = r * currentDistRatio;
+
+        const px = cx + Math.cos(p.angle) * dist;
+        const py = cy + Math.sin(p.angle) * dist;
+
+        // Alpha distance falloff (fades out as it approaches 1.25x outer boundary)
+        const normalizedDist = (currentDistRatio - 1.02) / 0.23; // 0.0 at edge, 1.0 at outer rim
+        const distFade = clamp(1.0 - normalizedDist, 0, 1);
+        const alpha = p.baseAlpha * distFade * clamp(this.rimIntensity * 0.9, 0.2, 1.0);
+
+        this.ctx.fillStyle = `rgba(${particleBaseColor}, ${alpha})`;
+        this.ctx.beginPath();
+        this.ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      this.ctx.restore();
+    }
+
+    /**
+     * Layer 3: Translucent Outer Membrane
+     * 2 delicate semi-transparent organic wave layers (opacity ~0.25) gently undulating
+     * outside the main sphere radius using smooth sine noise for a living liquid membrane feel.
+     */
+    drawOuterMembrane(cx, cy, r) {
+      const isError = this.state === 'error';
+      const segments = 36;
+      const angleStep = (Math.PI * 2) / segments;
+
+      // Membrane Wave Layer 1 (Warm Amber/Peach sheen)
+      this.ctx.save();
       this.ctx.beginPath();
-      this.ctx.moveTo(coords[0].x, coords[0].y);
+      for (let i = 0; i <= segments; i++) {
+        const theta = i * angleStep;
+        const wave1 = Math.sin(theta * 3 + this.membraneTime * 1.4) * 0.022;
+        const wave2 = Math.cos(theta * 2 - this.membraneTime * 0.9) * 0.015;
+        const memR = r * (1.025 + (wave1 + wave2) * (1 + this.audioLevel * 1.2));
 
-      // Smooth cardinal spline through fluid vertices
-      for (let i = 0; i < segments; i++) {
-        const p0 = coords[i === 0 ? segments - 1 : i - 1];
-        const p1 = coords[i];
-        const p2 = coords[i + 1];
-        const p3 = coords[(i + 2) > segments ? (i + 2) - segments : i + 2];
+        const x = cx + Math.cos(theta) * memR;
+        const y = cy + Math.sin(theta) * memR;
 
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-        this.ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        if (i === 0) this.ctx.moveTo(x, y);
+        else this.ctx.lineTo(x, y);
       }
       this.ctx.closePath();
+      this.ctx.strokeStyle = isError
+        ? 'rgba(248, 113, 113, 0.22)'
+        : `rgba(245, 130, 49, ${0.25 * clamp(this.rimIntensity, 0.6, 1.4)})`;
+      this.ctx.lineWidth = 1.8;
+      this.ctx.stroke();
 
-      // Multi-stop Volumetric Fluid Gradient
-      const coreGrad = this.ctx.createRadialGradient(
-        lightOffsetX, lightOffsetY, currentRadius * 0.06,
-        this.centerX, this.centerY, currentRadius * 1.05
+      // Membrane Wave Layer 2 (Soft Golden outer arc, slightly offset)
+      this.ctx.beginPath();
+      for (let i = 0; i <= segments; i++) {
+        const theta = i * angleStep;
+        const waveA = Math.cos(theta * 4 - this.membraneTime * 1.1) * 0.020;
+        const waveB = Math.sin(theta * 2 + this.membraneTime * 0.7) * 0.012;
+        const memR = r * (1.038 + (waveA + waveB) * (1 + this.audioLevel * 1.0));
+
+        const x = cx + Math.cos(theta) * memR;
+        const y = cy + Math.sin(theta) * memR;
+
+        if (i === 0) this.ctx.moveTo(x, y);
+        else this.ctx.lineTo(x, y);
+      }
+      this.ctx.closePath();
+      this.ctx.strokeStyle = isError
+        ? 'rgba(252, 165, 165, 0.16)'
+        : `rgba(255, 209, 102, ${0.18 * clamp(this.rimIntensity, 0.5, 1.2)})`;
+      this.ctx.lineWidth = 1.4;
+      this.ctx.stroke();
+      this.ctx.restore();
+    }
+
+    /**
+     * Layer 4: Volumetric Frosted Glass Sphere
+     * Rendered inside a circular clipping mask:
+     *  - Internal volumetric fluid: 4 overlapping organic color blobs
+     *    - Core Highlight: Soft Gold (#FFD166)
+     *    - Primary Midtone: Warm Amber (#F58231)
+     *    - Secondary Midtone: Soft Peach (#FFAD87)
+     *    - Deep Valley Shadow: Burnt Sienna (#3A1405) for 3D depth and contrast
+     *  - Soft Fresnel Rim Light: Inner glow along the circumference feathering inward (28px)
+     */
+    drawVolumetricGlassSphere(cx, cy, r) {
+      const isError = this.state === 'error';
+      const t = this.fluidTime;
+
+      // 3D Lighting and Cursor Parallax Offset
+      const lightTiltX = this.mouse.x * r * 0.18;
+      const lightTiltY = this.mouse.y * r * 0.18;
+
+      this.ctx.save();
+      // Clip everything strictly to the circular frosted glass sphere
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      this.ctx.clip();
+
+      // -----------------------------------------------------------
+      // A. Deep Atmospheric Base Gradient (Spherical Volume Foundation)
+      // -----------------------------------------------------------
+      const baseGrad = this.ctx.createRadialGradient(
+        cx - r * 0.25 + lightTiltX, cy - r * 0.30 + lightTiltY, r * 0.05,
+        cx, cy, r * 1.02
       );
-      coreGrad.addColorStop(0, colors.coreCenter);
-      coreGrad.addColorStop(0.18, colors.coreGlow);
-      coreGrad.addColorStop(0.50, colors.coreMid);
-      coreGrad.addColorStop(0.82, colors.coreEdge);
-      coreGrad.addColorStop(1, colors.deepBase);
+      if (isError) {
+        baseGrad.addColorStop(0, '#fca5a5');
+        baseGrad.addColorStop(0.35, '#ef4444');
+        baseGrad.addColorStop(0.70, '#b91c1c');
+        baseGrad.addColorStop(1.0, '#450a0a');
+      } else {
+        baseGrad.addColorStop(0, '#FFD166');    // Soft Gold
+        baseGrad.addColorStop(0.32, '#F58231'); // Warm Amber
+        baseGrad.addColorStop(0.68, '#C24A0E'); // Rich Amber Shadow
+        baseGrad.addColorStop(1.0, '#3A1405');  // Burnt Sienna (Deep Valley Shadow)
+      }
+      this.ctx.fillStyle = baseGrad;
+      this.ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-      this.ctx.fillStyle = coreGrad;
+      // -----------------------------------------------------------
+      // B. 4 Overlapping Organic Fluid Blobs (Cloudy Core Nebula)
+      // -----------------------------------------------------------
+      this.ctx.save();
+      this.ctx.globalCompositeOperation = 'screen';
+
+      // Blob 1: Deep Valley Shadow & Contrast Sculptor (orbiting lower-right)
+      const b1Angle = t * 0.8 + Math.PI * 0.25;
+      const b1X = cx + Math.cos(b1Angle) * r * 0.35 + lightTiltX;
+      const b1Y = cy + Math.sin(b1Angle) * r * 0.35 + lightTiltY;
+      const b1R = r * 0.70;
+      const b1Grad = this.ctx.createRadialGradient(b1X, b1Y, 0, b1X, b1Y, b1R);
+      b1Grad.addColorStop(0, isError ? 'rgba(185, 28, 28, 0.7)' : 'rgba(194, 65, 12, 0.65)');
+      b1Grad.addColorStop(0.6, isError ? 'rgba(127, 29, 29, 0.3)' : 'rgba(124, 45, 18, 0.3)');
+      b1Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = b1Grad;
+      this.ctx.beginPath();
+      this.ctx.arc(b1X, b1Y, b1R, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // Delicate Glass Rim Light
-      this.ctx.strokeStyle = colors.rim;
-      this.ctx.lineWidth = 1.6;
+      // Blob 2: Primary Midtone (Warm Amber #F58231, swirling in lower-mid zone)
+      const b2Angle = -t * 0.65 + Math.PI * 0.8;
+      const b2X = cx + Math.cos(b2Angle) * r * 0.40 + lightTiltX;
+      const b2Y = cy + Math.sin(b2Angle) * r * 0.40 + lightTiltY;
+      const b2R = r * 0.65;
+      const b2Grad = this.ctx.createRadialGradient(b2X, b2Y, 0, b2X, b2Y, b2R);
+      b2Grad.addColorStop(0, isError ? 'rgba(239, 68, 68, 0.8)' : 'rgba(245, 130, 49, 0.85)');
+      b2Grad.addColorStop(0.65, isError ? 'rgba(220, 38, 38, 0.3)' : 'rgba(245, 130, 49, 0.25)');
+      b2Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = b2Grad;
+      this.ctx.beginPath();
+      this.ctx.arc(b2X, b2Y, b2R, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Blob 3: Secondary Midtone (Soft Peach #FFAD87, floating center-left)
+      const b3Angle = t * 1.1 + Math.PI * 1.4;
+      const b3X = cx + Math.cos(b3Angle) * r * 0.32 + lightTiltX;
+      const b3Y = cy + Math.sin(b3Angle) * r * 0.32 + lightTiltY;
+      const b3R = r * 0.55;
+      const b3Grad = this.ctx.createRadialGradient(b3X, b3Y, 0, b3X, b3Y, b3R);
+      b3Grad.addColorStop(0, isError ? 'rgba(252, 165, 165, 0.75)' : 'rgba(255, 173, 135, 0.75)');
+      b3Grad.addColorStop(0.55, isError ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 173, 135, 0.2)');
+      b3Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = b3Grad;
+      this.ctx.beginPath();
+      this.ctx.arc(b3X, b3Y, b3R, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Blob 4: Core Highlight (Soft Gold #FFD166, floating upper-center)
+      const b4Angle = -t * 0.95 + Math.PI * 0.15;
+      const b4X = cx + Math.cos(b4Angle) * r * 0.25 + lightTiltX;
+      const b4Y = cy + Math.sin(b4Angle) * r * 0.25 + lightTiltY;
+      const b4R = r * 0.50;
+      const b4Grad = this.ctx.createRadialGradient(b4X, b4Y, 0, b4X, b4Y, b4R);
+      b4Grad.addColorStop(0, isError ? 'rgba(254, 226, 226, 0.95)' : 'rgba(255, 209, 102, 0.92)');
+      b4Grad.addColorStop(0.5, isError ? 'rgba(248, 113, 113, 0.4)' : 'rgba(255, 209, 102, 0.35)');
+      b4Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = b4Grad;
+      this.ctx.beginPath();
+      this.ctx.arc(b4X, b4Y, b4R, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.restore(); // Restore from 'screen' mode
+
+      // -----------------------------------------------------------
+      // C. Soft Fresnel Rim Light (Inner glow feathering inward 28px)
+      // -----------------------------------------------------------
+      // Completely eliminates harsh solid borders and provides silky frosted glass edge
+      const rimWidth = Math.min(28, r * 0.28);
+      const fresnelGrad = this.ctx.createRadialGradient(cx, cy, r - rimWidth, cx, cy, r);
+      const rimColor = isError ? '255, 228, 230' : '255, 245, 214'; // Warm ivory gold
+      const rimAlpha = clamp(this.rimIntensity, 0.5, 1.25);
+
+      fresnelGrad.addColorStop(0, `rgba(${rimColor}, 0)`);
+      fresnelGrad.addColorStop(0.40, `rgba(${rimColor}, ${0.15 * rimAlpha})`);
+      fresnelGrad.addColorStop(0.75, `rgba(${rimColor}, ${0.55 * rimAlpha})`);
+      fresnelGrad.addColorStop(0.95, `rgba(${rimColor}, ${0.85 * rimAlpha})`);
+      fresnelGrad.addColorStop(1.0, `rgba(${rimColor}, ${0.95 * rimAlpha})`);
+
+      this.ctx.fillStyle = fresnelGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // -----------------------------------------------------------
+      // D. Directional Fresnel Crescent (Bright highlight along upper-left)
+      // -----------------------------------------------------------
+      const crescentGrad = this.ctx.createLinearGradient(
+        cx - r * 0.8, cy - r * 0.8,
+        cx + r * 0.8, cy + r * 0.8
+      );
+      crescentGrad.addColorStop(0, `rgba(${rimColor}, ${0.80 * rimAlpha})`);
+      crescentGrad.addColorStop(0.4, `rgba(${rimColor}, ${0.25 * rimAlpha})`);
+      crescentGrad.addColorStop(0.7, 'rgba(255, 245, 214, 0)');
+      crescentGrad.addColorStop(1, 'rgba(255, 245, 214, 0)');
+
+      this.ctx.save();
+      this.ctx.strokeStyle = crescentGrad;
+      this.ctx.lineWidth = 2.4;
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r - 1.2, 0, Math.PI * 2);
       this.ctx.stroke();
       this.ctx.restore();
 
-      // -------------------------------------------------------------
-      // 4. Searching State: Orbital Stellar Ring
-      // -------------------------------------------------------------
-      if (this.state === 'searching') {
-        this.ctx.save();
-        this.ctx.translate(this.centerX, this.centerY);
-        this.ctx.rotate(this.time * 2.5);
-        const orbitGrad = this.ctx.createLinearGradient(-currentRadius * 1.2, 0, currentRadius * 1.2, 0);
-        orbitGrad.addColorStop(0, 'rgba(168, 85, 247, 0)');
-        orbitGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
-        orbitGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
-        this.ctx.strokeStyle = orbitGrad;
-        this.ctx.lineWidth = 2.4;
-        this.ctx.beginPath();
-        this.ctx.ellipse(0, 0, currentRadius * 1.22, currentRadius * 0.45, Math.PI / 5, 0, Math.PI * 2);
-        this.ctx.stroke();
-        this.ctx.restore();
-      }
+      this.ctx.restore(); // Restore circular clip
+    }
 
-      // -------------------------------------------------------------
-      // 5. Specular Glint Highlight (3D Glass Caustic Depth)
-      // -------------------------------------------------------------
-      this.ctx.save();
-      const glintX = lightOffsetX;
-      const glintY = lightOffsetY;
-      const glintRadius = currentRadius * 0.52;
+    /**
+     * Layer 5: Specular Glint & Reflection Arc
+     * Delicate surface caustics providing tactile glass realism.
+     */
+    drawSpecularGlint(cx, cy, r) {
+      const isError = this.state === 'error';
+      const glintX = cx - r * 0.28 + this.mouse.x * r * 0.15;
+      const glintY = cy - r * 0.32 + this.mouse.y * r * 0.15;
+      const glintRadius = r * 0.38;
+
       const glintGrad = this.ctx.createRadialGradient(
         glintX, glintY, 0,
         glintX, glintY, glintRadius
       );
-      glintGrad.addColorStop(0, 'rgba(255, 255, 255, 0.72)');
-      glintGrad.addColorStop(0.25, 'rgba(255, 255, 255, 0.22)');
+      const glintColor = isError ? '254, 226, 226' : '255, 255, 255';
+      glintGrad.addColorStop(0, `rgba(${glintColor}, ${0.52 * this.rimIntensity})`);
+      glintGrad.addColorStop(0.35, `rgba(${glintColor}, ${0.16 * this.rimIntensity})`);
       glintGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
+      this.ctx.save();
       this.ctx.fillStyle = glintGrad;
       this.ctx.beginPath();
       this.ctx.arc(glintX, glintY, glintRadius, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.restore();
-
-      // -------------------------------------------------------------
-      // 6. Floating Acoustic Sparkles
-      // -------------------------------------------------------------
-      if (this.activeParticles > 0) {
-        this.ctx.save();
-        for (let i = 0; i < this.activeParticles; i++) {
-          const idx = i * 6;
-          const lifeFrac = this.particles[idx + 4] / this.particles[idx + 5];
-          const alpha = lifeFrac * 0.85;
-          this.ctx.fillStyle = `rgba(255, 237, 213, ${alpha})`;
-          this.ctx.beginPath();
-          this.ctx.arc(this.particles[idx + 0], this.particles[idx + 1], 1.8 * lifeFrac, 0, Math.PI * 2);
-          this.ctx.fill();
-        }
-        this.ctx.restore();
-      }
-
-      this.rafId = requestAnimationFrame(this.render.bind(this));
     }
 
     destroy() {
@@ -462,5 +587,7 @@
     }
   }
 
-  window.OrbVisualizer = OrbVisualizer;
+  // Export both class names for seamless compatibility
+  window.VoiceOrbVisualizer = VoiceOrbVisualizer;
+  window.OrbVisualizer = VoiceOrbVisualizer;
 })(window);
