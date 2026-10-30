@@ -127,7 +127,7 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
                 "Try uploading a relevant file first, or rephrase your question."
             ),
             "sources": [],
-            "trace": ["no_answer: nothing relevant found — declining gracefully"],
+            "trace": ["no_answer: nothing relevant found - declining gracefully"],
             "latency_ms": {"synthesize": 0},
         }
 
