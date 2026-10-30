@@ -9,7 +9,6 @@ interruptions); binary frames carry raw PCM audio both ways.
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 
@@ -212,7 +211,3 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
         except Exception:
             pass
         log.info("session closed")
-
-
-def b64(data: bytes) -> str:  # used by the text-only test client
-    return base64.b64encode(data).decode()

@@ -89,9 +89,9 @@ function resetInactivityTimer() {
   inactivityTimer = setTimeout(() => {
     if (appState === 'listening' && ws && ws.readyState === WebSocket.OPEN) {
       playEndSound();
-      stopSession(false, 'Session Timeout', 'No activity for 2 minutes');
+      stopSession(false, 'Session Timeout', 'No activity for 10 minutes. Tap orb to resume.');
     }
-  }, 120000);
+  }, 600000); // 10 minutes of complete inactivity
 }
 
 function stopInactivityTimer() {
@@ -424,7 +424,7 @@ function playPcm24k(bytes) {
   src.connect(audioCtx.destination);
   
   const now = audioCtx.currentTime;
-  if (nextPlayTime < now || nextPlayTime > now + 3.0) {
+  if (nextPlayTime < now) {
     nextPlayTime = now + 0.04;
   }
   src.start(nextPlayTime);
@@ -434,6 +434,7 @@ function playPcm24k(bytes) {
   src.onended = () => {
     liveSources.delete(src);
     if (liveSources.size === 0) {
+      nextPlayTime = 0;
       setTimeout(() => {
         if (liveSources.size === 0 && appState === 'speaking' && !isInterrupting) {
           setState('listening', 'Listening...', 'Capturing your voice');
@@ -456,7 +457,7 @@ async function startSession() {
       if (!mediaStream) {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         audioCtx = new AudioContext();
-        await audioCtx.audioWorklet.addModule('/static/pcm-worklet.js');
+        await audioCtx.audioWorklet.addModule('/static/pcm-worklet.js?v=2.0.0');
         const source = audioCtx.createMediaStreamSource(mediaStream);
         workletNode = new AudioWorkletNode(audioCtx, 'pcm-capture');
         
