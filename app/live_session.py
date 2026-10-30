@@ -1,7 +1,7 @@
 """Bridge between a browser WebSocket and a Gemini Live session.
 
-Browser  ──PCM 16k──►  FastAPI /ws  ──PCM 16k──►  Gemini Live (native audio)
-Browser  ◄─PCM 24k──               ◄─PCM 24k──
+Browser  --PCM 16k-->  FastAPI /ws  --PCM 16k-->  Gemini Live (native audio)
+Browser  <--PCM 24k--               <--PCM 24k--
 
 Text frames carry JSON control messages (transcripts, tool events,
 interruptions); binary frames carry raw PCM audio both ways.
@@ -48,6 +48,7 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
     await ws.accept()
     client = genai.Client(api_key=config.GOOGLE_API_KEY)
     stop = asyncio.Event()
+    session_context = {"active_doc": None}
 
     try:
         async with client.aio.live.connect(
@@ -57,7 +58,7 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
             await _send_json(ws, {"type": "status", "status": "ready"})
 
             async def browser_to_gemini() -> None:
-                """Mic audio (binary) and control messages (text) → Gemini."""
+                """Mic audio (binary) and control messages (text) -> Gemini."""
                 while not stop.is_set():
                     try:
                         msg = await ws.receive()
@@ -81,11 +82,14 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
                             data = json.loads(msg["text"])
                             if data.get("type") == "ping":
                                 await _send_json(ws, {"type": "pong"})
+                            elif data.get("type") == "set_context":
+                                session_context["active_doc"] = data.get("doc_name") or None
+                                log.info("Client context filter set to: %s", session_context["active_doc"])
                         except Exception:
                             pass
 
             async def gemini_to_browser() -> None:
-                """Gemini audio + transcripts + tool calls → browser."""
+                """Gemini audio + transcripts + tool calls -> browser."""
                 while not stop.is_set():
                     try:
                         turn_has_messages = False
@@ -105,7 +109,10 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
                                     })
                                     try:
                                         response, ui_event = await dispatch_tool(
-                                            fc.name, fc.args or {}, rag_service
+                                            fc.name,
+                                            fc.args or {},
+                                            rag_service,
+                                            doc_filter=session_context["active_doc"],
                                         )
                                         ui_event["status"] = "done"
                                     except Exception:
@@ -161,11 +168,13 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
                                 await _send_json(ws, {
                                     "type": "transcript", "role": "user",
                                     "text": sc.input_transcription.text,
+                                    "is_interim": False,
                                 })
                             if sc.output_transcription and sc.output_transcription.text:
                                 await _send_json(ws, {
                                     "type": "transcript", "role": "agent",
                                     "text": sc.output_transcription.text,
+                                    "is_interim": False,
                                 })
                             if sc.turn_complete:
                                 await _send_json(ws, {"type": "turn_complete"})
