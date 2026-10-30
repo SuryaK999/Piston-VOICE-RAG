@@ -1,4 +1,4 @@
-/* Piston Frontend Logic */
+/* Piston Frontend Logic - v2.1.0 */
 
 const DOM = {
   uploadInput: document.getElementById('doc-upload'),
@@ -24,11 +24,26 @@ const DOM = {
   contextDropdown: document.getElementById('context-dropdown'),
   contextDropdownList: document.getElementById('context-dropdown-list'),
   docSearch: document.getElementById('doc-search'),
-  btnThemeToggle: document.getElementById('btn-theme-toggle')
+  btnThemeToggle: document.getElementById('btn-theme-toggle'),
+  btnClearDocs: document.getElementById('btn-clear-docs'),
+  toastContainer: document.getElementById('toast-container')
 };
 
 let uploadedDocs = [];
 let activeDocId = null;
+
+// --- Toast Notifications ---
+function showToast(message, type = 'info') {
+  if (!DOM.toastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  DOM.toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-exit');
+    setTimeout(() => toast.remove(), 200);
+  }, 3000);
+}
 
 // --- Theme Management ---
 function initTheme() {
@@ -65,7 +80,6 @@ if (DOM.btnThemeToggle) {
 
 initTheme();
 
-
 let ws = null;
 let audioCtx = null;
 let workletNode = null;
@@ -91,7 +105,7 @@ function resetInactivityTimer() {
       playEndSound();
       stopSession(false, 'Session Timeout', 'No activity for 10 minutes. Tap orb to resume.');
     }
-  }, 600000); // 10 minutes of complete inactivity
+  }, 600000); // 10 minutes
 }
 
 function stopInactivityTimer() {
@@ -100,23 +114,24 @@ function stopInactivityTimer() {
 }
 
 function playEndSound() {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(440, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.5);
-  gain.gain.setValueAtTime(0.5, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.5);
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (_) {}
 }
 
 function setState(newState, message, subtitle) {
   appState = newState;
-  
   DOM.orb.className = `orb state-${newState}`;
   
   if (message) DOM.stageTitle.textContent = message;
@@ -124,18 +139,13 @@ function setState(newState, message, subtitle) {
   
   DOM.liveIndicator.classList.toggle('active', ['listening', 'searching', 'speaking'].includes(newState));
   
-  if (newState === 'idle' || newState === 'error') {
-    DOM.btnMute.disabled = true;
-    DOM.btnInterrupt.disabled = true;
-    DOM.btnEnd.disabled = true;
-  } else {
-    DOM.btnMute.disabled = false;
-    DOM.btnInterrupt.disabled = false;
-    DOM.btnEnd.disabled = false;
-  }
+  const isInactive = newState === 'idle' || newState === 'error';
+  DOM.btnMute.disabled = isInactive;
+  DOM.btnInterrupt.disabled = isInactive;
+  DOM.btnEnd.disabled = isInactive;
 }
 
-// --- Document Management ---
+// --- Document Management & Persistence ---
 
 function formatSize(bytes) {
   if (!bytes) return '';
@@ -145,67 +155,248 @@ function formatSize(bytes) {
 }
 
 function getIconType(name) {
-  const ext = name.split('.').pop().toLowerCase();
+  const ext = (name || '').split('.').pop().toLowerCase();
   if (ext === 'pdf') return 'pdf';
   if (ext === 'md') return 'md';
   return 'txt';
 }
 
-function renderDocList() {
-  const renderTarget = (target) => {
-    if (uploadedDocs.length === 0) {
-      target.innerHTML = `<li class="empty-state">No documents uploaded.</li>`;
-      return;
-    }
-    
-    target.innerHTML = '';
-    uploadedDocs.forEach(doc => {
-      const li = document.createElement('li');
-      li.className = `doc-item ${doc.id === activeDocId ? 'active' : ''}`;
-      li.onclick = () => selectDoc(doc.id);
-      
-      const iconType = getIconType(doc.name);
-      
-      li.innerHTML = `
-        <div class="doc-icon ${iconType}">${iconType.toUpperCase()}</div>
-        <div class="doc-info">
-          <div class="doc-title" title="${doc.name}">${doc.name}</div>
-          <div class="doc-meta">
-            <span>${iconType.toUpperCase()} • ${formatSize(doc.size)}</span>
-            ${doc.parsed ? `<span class="doc-status"><span class="status-dot"></span>Indexed</span>` : `<span class="doc-status" style="color:#f59e0b">Uploading...</span>`}
-          </div>
-        </div>
-        <button class="doc-menu" aria-label="Document options">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-        </button>
-      `;
-      target.appendChild(li);
-    });
-  };
+function syncContextToBackend() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    const activeDoc = activeDocId ? uploadedDocs.find(d => d.id === activeDocId) : null;
+    ws.send(JSON.stringify({
+      type: 'set_context',
+      doc_name: activeDoc ? activeDoc.name : null
+    }));
+  }
+}
 
-  renderTarget(DOM.docList);
-  if (DOM.contextDropdownList) renderTarget(DOM.contextDropdownList);
+function createDocItem(doc, inDropdown = false) {
+  const li = document.createElement('li');
+  const isActive = doc.id === activeDocId;
+  li.className = `doc-item ${isActive ? 'active' : ''}`;
   
-  if (uploadedDocs.length === 0) {
-    DOM.activeContextName.textContent = 'No document selected';
-    DOM.contextCount.textContent = '0 documents in context';
+  li.addEventListener('click', () => selectDoc(doc.id));
+
+  const iconType = getIconType(doc.name);
+  const chunkText = doc.chunks_count ? `${doc.chunks_count} chunks` : '';
+  const metaParts = [iconType.toUpperCase(), formatSize(doc.size), chunkText].filter(Boolean).join(' • ');
+
+  const iconDiv = document.createElement('div');
+  iconDiv.className = `doc-icon ${iconType}`;
+  iconDiv.textContent = iconType.toUpperCase();
+
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'doc-info';
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'doc-title';
+  titleDiv.title = doc.name;
+  titleDiv.textContent = doc.name;
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'doc-meta';
+
+  if (doc.parsed) {
+    metaDiv.innerHTML = `<span>${metaParts}</span><span class="doc-status"><span class="status-dot"></span>Indexed</span>`;
   } else {
-    const activeDoc = uploadedDocs.find(d => d.id === activeDocId);
-    if (activeDoc) {
-      DOM.activeContextName.textContent = activeDoc.name;
-      DOM.contextCount.textContent = `${uploadedDocs.length} document${uploadedDocs.length > 1 ? 's' : ''} in context`;
+    metaDiv.innerHTML = `<span>${iconType.toUpperCase()} • ${formatSize(doc.size)}</span><span class="doc-status" style="color:#f59e0b">Uploading...</span>`;
+  }
+
+  infoDiv.appendChild(titleDiv);
+  infoDiv.appendChild(metaDiv);
+
+  li.appendChild(iconDiv);
+  li.appendChild(infoDiv);
+
+  if (!inDropdown) {
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-doc-delete';
+    delBtn.title = `Remove "${doc.name}"`;
+    delBtn.setAttribute('aria-label', `Remove "${doc.name}"`);
+    delBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+    delBtn.addEventListener('click', (e) => deleteDoc(e, doc.name));
+    li.appendChild(delBtn);
+  } else if (isActive) {
+    const badge = document.createElement('span');
+    badge.className = 'context-active-badge';
+    badge.textContent = 'Active';
+    li.appendChild(badge);
+  }
+
+  return li;
+}
+
+function renderDocList() {
+  if (DOM.btnClearDocs) {
+    DOM.btnClearDocs.style.display = uploadedDocs.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  // 1. Sidebar Document List
+  if (DOM.docList) {
+    if (uploadedDocs.length === 0) {
+      DOM.docList.innerHTML = `<li class="empty-state">No documents uploaded.</li>`;
+    } else {
+      DOM.docList.innerHTML = '';
+      uploadedDocs.forEach(doc => {
+        DOM.docList.appendChild(createDocItem(doc, false));
+      });
     }
   }
-  
-  // Re-apply search filter if there's text in the search box
+
+  // 2. Center Stage Context Dropdown
+  if (DOM.contextDropdownList) {
+    DOM.contextDropdownList.innerHTML = '';
+
+    const allLi = document.createElement('li');
+    const isAllActive = activeDocId === null;
+    allLi.className = `doc-item context-option-all ${isAllActive ? 'active' : ''}`;
+    allLi.addEventListener('click', () => selectDoc(null));
+    allLi.innerHTML = `
+      <div class="doc-icon all">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div class="doc-info">
+        <div class="doc-title">Everything (All Documents)</div>
+        <div class="doc-meta"><span>Search across all ${uploadedDocs.length} indexed files</span></div>
+      </div>
+      ${isAllActive ? '<span class="context-active-badge">Active</span>' : ''}
+    `;
+    DOM.contextDropdownList.appendChild(allLi);
+
+    if (uploadedDocs.length > 0) {
+      uploadedDocs.forEach(doc => {
+        DOM.contextDropdownList.appendChild(createDocItem(doc, true));
+      });
+    }
+  }
+
+  // 3. Update Context Display
+  const activeDoc = activeDocId ? uploadedDocs.find(d => d.id === activeDocId) : null;
+  if (!activeDoc) {
+    DOM.activeContextName.textContent = uploadedDocs.length > 0 ? 'Everything' : 'No documents';
+    DOM.contextCount.textContent = `${uploadedDocs.length} document${uploadedDocs.length === 1 ? '' : 's'} in context`;
+  } else {
+    DOM.activeContextName.textContent = activeDoc.name;
+    DOM.contextCount.textContent = '1 document focused (click to change)';
+  }
+
+  // 4. Re-apply search filter
   if (DOM.docSearch && DOM.docSearch.value) {
     DOM.docSearch.dispatchEvent(new Event('input'));
   }
 }
 
+async function loadDocuments() {
+  // Local cache for immediate render (no flash)
+  const cached = localStorage.getItem('piston_uploaded_docs');
+  if (cached) {
+    try {
+      uploadedDocs = JSON.parse(cached);
+      const savedActive = localStorage.getItem('piston_active_doc');
+      if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
+        activeDocId = savedActive;
+      }
+      renderDocList();
+    } catch (_) {}
+  }
+
+  // Authoritative fetch from server
+  try {
+    const res = await fetch('/documents');
+    if (res.ok) {
+      const data = await res.json();
+      uploadedDocs = data;
+      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+
+      const savedActive = localStorage.getItem('piston_active_doc');
+      if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
+        activeDocId = savedActive;
+      } else if (activeDocId && !uploadedDocs.some(d => d.id === activeDocId)) {
+        activeDocId = null;
+        localStorage.removeItem('piston_active_doc');
+      }
+      renderDocList();
+      syncContextToBackend();
+    }
+  } catch (err) {
+    console.error('Failed to load documents from backend', err);
+  }
+}
+
 function selectDoc(id) {
   activeDocId = id;
+  if (id) {
+    localStorage.setItem('piston_active_doc', id);
+    const doc = uploadedDocs.find(d => d.id === id);
+    showToast(`Context focused: ${doc ? doc.name : 'Document'}`, 'info');
+  } else {
+    localStorage.removeItem('piston_active_doc');
+    showToast('Context: Everything (All Documents)', 'info');
+  }
   renderDocList();
+  syncContextToBackend();
+  if (DOM.contextDropdown && DOM.contextDropdown.classList.contains('open')) {
+    DOM.contextDropdown.classList.remove('open');
+  }
+}
+
+async function deleteDoc(e, docName) {
+  if (e) e.stopPropagation();
+  if (!confirm(`Are you sure you want to remove "${docName}" from the knowledge base?`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/documents/${encodeURIComponent(docName)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to remove document');
+
+    uploadedDocs = uploadedDocs.filter(d => d.name !== docName);
+    localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+
+    const activeDoc = uploadedDocs.find(d => d.id === activeDocId);
+    if (!activeDoc) {
+      activeDocId = null;
+      localStorage.removeItem('piston_active_doc');
+    }
+
+    renderDocList();
+    syncContextToBackend();
+    showToast(`Removed "${docName}"`, 'info');
+  } catch (err) {
+    alert(`Could not remove document: ${err.message}`);
+    showToast(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function clearAllDocs() {
+  if (!uploadedDocs.length) return;
+  if (!confirm("Are you sure you want to remove ALL documents from the knowledge base? This action cannot be undone.")) {
+    return;
+  }
+  try {
+    const res = await fetch('/documents', { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to clear documents');
+
+    uploadedDocs = [];
+    activeDocId = null;
+    localStorage.removeItem('piston_uploaded_docs');
+    localStorage.removeItem('piston_active_doc');
+
+    renderDocList();
+    syncContextToBackend();
+    showToast("All documents removed", 'info');
+  } catch (err) {
+    alert(`Could not clear documents: ${err.message}`);
+    showToast(`Error: ${err.message}`, 'error');
+  }
+}
+
+if (DOM.btnClearDocs) {
+  DOM.btnClearDocs.addEventListener('click', clearAllDocs);
 }
 
 DOM.uploadInput.addEventListener('change', async (e) => {
@@ -213,10 +404,17 @@ DOM.uploadInput.addEventListener('change', async (e) => {
   if (!files || !files.length) return;
   
   for (const file of files) {
-    const docId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-    const newDoc = { id: docId, name: file.name, size: file.size, parsed: false };
+    const docId = `doc-${file.name}`;
+    const newDoc = {
+      id: docId,
+      name: file.name,
+      size: file.size,
+      chunks_count: 0,
+      parsed: false
+    };
+    
+    uploadedDocs = uploadedDocs.filter(d => d.name !== file.name);
     uploadedDocs.push(newDoc);
-    if (!activeDocId) activeDocId = docId;
     renderDocList();
     
     const formData = new FormData();
@@ -226,18 +424,26 @@ DOM.uploadInput.addEventListener('change', async (e) => {
       let data;
       try {
         data = await res.json();
-      } catch (e) {
+      } catch (err) {
         throw new Error(res.status >= 500 ? 'Server error occurred during upload.' : 'Invalid response from server.');
       }
       if (!res.ok) throw new Error(data.error || 'Upload failed');
       newDoc.parsed = true;
+      if (data.doc && data.doc.chunks_count) {
+        newDoc.chunks_count = data.doc.chunks_count;
+      }
+      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+      showToast(`"${file.name}" indexed successfully!`, 'success');
     } catch (err) {
       alert(`Error uploading ${file.name}: ${err.message}`);
-      uploadedDocs = uploadedDocs.filter(d => d.id !== docId);
-      if (activeDocId === docId) activeDocId = uploadedDocs.length ? uploadedDocs[0].id : null;
+      uploadedDocs = uploadedDocs.filter(d => d.name !== file.name);
+      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+      showToast(`Failed to upload "${file.name}"`, 'error');
     }
     renderDocList();
+    syncContextToBackend();
   }
+  DOM.uploadInput.value = '';
 });
 
 // --- Document Search Filter ---
@@ -248,6 +454,7 @@ if (DOM.docSearch) {
     const filterList = (targetList) => {
       if (!targetList) return;
       Array.from(targetList.querySelectorAll('.doc-item')).forEach(item => {
+        if (item.classList.contains('context-option-all')) return;
         const titleNode = item.querySelector('.doc-title');
         if (titleNode) {
           const title = titleNode.textContent.toLowerCase();
@@ -267,9 +474,15 @@ function saveTranscript() {
   const messages = [];
   DOM.transcript.querySelectorAll('.msg').forEach(msgNode => {
     const isUser = msgNode.classList.contains('user');
-    const text = msgNode.querySelector('.msg-text').textContent;
-    const time = msgNode.querySelector('.msg-time').textContent;
-    messages.push({ role: isUser ? 'user' : 'agent', text, time });
+    const textNode = msgNode.querySelector('.msg-text');
+    const timeNode = msgNode.querySelector('.msg-time');
+    if (textNode && timeNode) {
+      messages.push({
+        role: isUser ? 'user' : 'agent',
+        text: textNode.textContent,
+        time: timeNode.textContent
+      });
+    }
   });
   localStorage.setItem('piston_transcript', JSON.stringify(messages));
 }
@@ -365,8 +578,6 @@ function onToolEvent(ev) {
     `;
     DOM.transcript.appendChild(chip);
   } else {
-    // When tool search finishes, do NOT prematurely switch to 'listening'.
-    // The agent will transition to 'speaking' as soon as Gemini begins delivering the answer.
     const pending = document.getElementById('pending-tool');
     if (pending) {
       pending.removeAttribute('id');
@@ -380,7 +591,7 @@ function onToolEvent(ev) {
   DOM.transcript.scrollTop = DOM.transcript.scrollHeight;
 }
 
-// --- Audio & Connection ---
+// --- Audio Playback & Voice Streaming ---
 
 function flushPlayback() {
   liveSources.forEach(s => { try { s.stop(); } catch (_) {} });
@@ -396,7 +607,8 @@ function playPcm24k(bytes) {
     audioCtx.resume();
   }
   if (appState !== 'speaking') {
-    setState('speaking', 'Piston is speaking', `Answering from ${activeDocId ? uploadedDocs.find(d=>d.id===activeDocId).name : 'knowledge base'}`);
+    const activeDoc = activeDocId ? uploadedDocs.find(d => d.id === activeDocId) : null;
+    setState('speaking', 'Piston is speaking', `Answering from ${activeDoc ? activeDoc.name : 'knowledge base'}`);
     stopInactivityTimer();
   }
   
@@ -412,7 +624,6 @@ function playPcm24k(bytes) {
     sumSquare += val * val;
   }
   
-  // update AI audio amplitude
   if (aiAnalyzer) {
     aiAnalyzer.rms = Math.sqrt(sumSquare / pcm.length);
   }
@@ -453,6 +664,8 @@ async function startSession() {
 
   ws.onopen = async () => {
     setState('idle', 'Connecting...', 'Initializing microphone');
+    syncContextToBackend();
+
     try {
       if (!mediaStream) {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -477,10 +690,7 @@ async function startSession() {
             resetInactivityTimer();
           }
 
-          // CRITICAL: Only send mic audio when Piston is in 'listening' mode!
-          // Streaming mic audio during 'speaking' or 'searching' sends speaker output
-          // right back into Gemini Live, causing Gemini's server-side VAD to falsely detect
-          // an interruption and abruptly cut off speech mid-sentence.
+          // Half-duplex acoustic gating: only send mic when Piston is listening!
           if (!isMuted && appState === 'listening' && ws && ws.readyState === WebSocket.OPEN) {
             ws.send(e.data);
           }
@@ -502,14 +712,12 @@ async function startSession() {
     const msg = JSON.parse(e.data);
     switch (msg.type) {
       case 'status': 
-        if(msg.status === 'ready' && appState === 'idle') {
+        if (msg.status === 'ready' && appState === 'idle') {
           setState('listening', 'Listening...', 'Capturing your voice');
           resetInactivityTimer();
         }
         break;
       case 'transcript': 
-        // We consider it final if turn_complete happens, but interim otherwise. 
-        // For simplicity, we just append to the bubble.
         onTranscript(msg.role, msg.text, false); 
         break;
       case 'turn_complete': 
@@ -571,6 +779,7 @@ function stopSession(isError = false, title = 'Ready to start', subtitle = 'Tap 
 function startAnimationLoop() {
   const waves = document.querySelectorAll('.orb-wave');
   const miniBars = document.querySelectorAll('.mini-waveform .bar');
+  const orbCore = document.querySelector('.orb-core');
   
   function render() {
     if (appState === 'listening' && micAnalyzer) {
@@ -580,7 +789,7 @@ function startAnimationLoop() {
         w.style.opacity = Math.max(0, 0.5 - (micAnalyzer.rms * 2));
       });
       miniBars.forEach(b => b.style.height = `${Math.max(4, micAnalyzer.rms * 40)}px`);
-      if (DOM.orbCore) DOM.orbCore.style.transform = `scale(${1 + micAnalyzer.rms * 0.5})`;
+      if (orbCore) orbCore.style.transform = `scale(${1 + micAnalyzer.rms * 0.5})`;
     } else if (appState === 'speaking' && aiAnalyzer) {
       const scale = 1 + (aiAnalyzer.rms * 3);
       waves.forEach((w, i) => {
@@ -588,25 +797,25 @@ function startAnimationLoop() {
         w.style.opacity = Math.max(0, 0.6 - (aiAnalyzer.rms * 1.5));
       });
       miniBars.forEach(b => b.style.height = `${Math.max(4, aiAnalyzer.rms * 30)}px`);
-      if (DOM.orbCore) DOM.orbCore.style.transform = `scale(${1 + aiAnalyzer.rms * 0.4})`;
-      aiAnalyzer.rms *= 0.9; // decay
+      if (orbCore) orbCore.style.transform = `scale(${1 + aiAnalyzer.rms * 0.4})`;
+      aiAnalyzer.rms *= 0.9;
     } else {
       waves.forEach((w) => {
         w.style.transform = `translate(-50%, -50%) scale(1)`;
         w.style.opacity = 0;
       });
       miniBars.forEach(b => b.style.height = '4px');
-      if (DOM.orbCore) DOM.orbCore.style.transform = `scale(1)`;
+      if (orbCore) orbCore.style.transform = `scale(1)`;
     }
     
-    if (micAnalyzer) micAnalyzer.rms *= 0.8; // decay
+    if (micAnalyzer) micAnalyzer.rms *= 0.8;
     
     animationFrameId = requestAnimationFrame(render);
   }
   render();
 }
 
-// Controls
+// User Controls
 DOM.orb.addEventListener('click', () => {
   if (appState === 'idle' || appState === 'error') {
     startSession();
@@ -693,12 +902,10 @@ function toggleDropdown(e) {
   if (DOM.contextDropdown) {
     e.stopPropagation();
     
-    // Dynamic Positioning based on available space
     if (!DOM.contextDropdown.classList.contains('open')) {
       const btnRect = (DOM.btnContext || DOM.btnContextCount).getBoundingClientRect();
       const spaceBelow = window.innerHeight - btnRect.bottom;
       
-      // If there's less than 320px below (max dropdown height + padding), pop UP
       if (spaceBelow < 320) {
         DOM.contextDropdown.style.top = 'auto';
         DOM.contextDropdown.style.bottom = 'calc(100% + 8px)';
@@ -724,6 +931,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Init
+// App Startup
 loadTranscript();
-renderDocList();
+loadDocuments();
