@@ -1,4 +1,4 @@
-/* Piston Frontend Logic - v2.2.0 */
+/* Piston Frontend Logic - v2.3.0 */
 
 const DOM = {
   uploadInput: document.getElementById('doc-upload'),
@@ -6,6 +6,7 @@ const DOM = {
   stageTitle: document.getElementById('stage-title'),
   stageSubtitle: document.getElementById('stage-subtitle'),
   orb: document.getElementById('orb'),
+  orbCanvas: document.getElementById('orb-canvas'),
   activeContextName: document.getElementById('active-context-name'),
   contextCount: document.getElementById('context-count'),
   btnMute: document.getElementById('btn-mute'),
@@ -15,7 +16,9 @@ const DOM = {
   liveIndicator: document.querySelector('.live-indicator'),
   btnMenuMobile: document.getElementById('btn-menu-mobile'),
   btnMenuDesktop: document.getElementById('btn-menu-desktop'),
-  btnUncollapse: document.getElementById('btn-uncollapse'),
+  btnUncollapseLeft: document.getElementById('btn-uncollapse-left') || document.getElementById('btn-uncollapse'),
+  btnUncollapseRight: document.getElementById('btn-uncollapse-right'),
+  btnCollapseRight: document.getElementById('btn-collapse-right'),
   btnTranscript: document.getElementById('btn-transcript'),
   leftPanel: document.querySelector('.left-panel'),
   rightPanel: document.querySelector('.right-panel'),
@@ -28,6 +31,15 @@ const DOM = {
   btnClearDocs: document.getElementById('btn-clear-docs'),
   toastContainer: document.getElementById('toast-container')
 };
+
+let orbVisualizer = null;
+if (window.OrbVisualizer && DOM.orbCanvas) {
+  try {
+    orbVisualizer = new window.OrbVisualizer(DOM.orbCanvas);
+  } catch (err) {
+    console.warn('Canvas OrbVisualizer fallback to CSS orb:', err);
+  }
+}
 
 let uploadedDocs = [];
 let activeDocId = null;
@@ -144,6 +156,9 @@ function playEndSound() {
 function setState(newState, message, subtitle) {
   appState = newState;
   DOM.orb.className = `orb state-${newState}`;
+  if (orbVisualizer) {
+    orbVisualizer.setState(newState);
+  }
   
   if (message) DOM.stageTitle.textContent = message;
   if (subtitle !== undefined) DOM.stageSubtitle.textContent = subtitle;
@@ -853,6 +868,16 @@ function startAnimationLoop() {
     
     if (micAnalyzer) micAnalyzer.rms *= 0.8;
     
+    if (orbVisualizer) {
+      if (appState === 'listening' && micAnalyzer) {
+        orbVisualizer.setAudioLevel(micAnalyzer.rms);
+      } else if (appState === 'speaking' && aiAnalyzer) {
+        orbVisualizer.setAudioLevel(aiAnalyzer.rms);
+      } else {
+        orbVisualizer.setAudioLevel(0);
+      }
+    }
+    
     animationFrameId = requestAnimationFrame(render);
   }
   render();
@@ -917,23 +942,67 @@ if (DOM.btnMenuMobile && DOM.leftPanel) {
   });
 }
 
-if (DOM.btnMenuDesktop && DOM.leftPanel) {
-  DOM.btnMenuDesktop.addEventListener('click', () => {
-    DOM.leftPanel.classList.add('collapsed');
-    if (DOM.btnUncollapse) {
-      DOM.btnUncollapse.style.opacity = '1';
-      DOM.btnUncollapse.style.pointerEvents = 'auto';
-    }
-  });
+// --- Dual Sidebar Collapse Management ---
+function setLeftPanelCollapsed(collapsed) {
+  if (!DOM.leftPanel) return;
+  DOM.leftPanel.classList.toggle('collapsed', collapsed);
+  if (DOM.btnUncollapseLeft) {
+    DOM.btnUncollapseLeft.classList.toggle('visible', collapsed);
+  }
+  localStorage.setItem('piston_left_collapsed', collapsed ? 'true' : 'false');
 }
 
-if (DOM.btnUncollapse && DOM.leftPanel) {
-  DOM.btnUncollapse.addEventListener('click', () => {
-    DOM.leftPanel.classList.remove('collapsed');
-    DOM.btnUncollapse.style.opacity = '0';
-    DOM.btnUncollapse.style.pointerEvents = 'none';
-  });
+function setRightPanelCollapsed(collapsed) {
+  if (!DOM.rightPanel) return;
+  DOM.rightPanel.classList.toggle('collapsed', collapsed);
+  if (DOM.btnUncollapseRight) {
+    DOM.btnUncollapseRight.classList.toggle('visible', collapsed);
+  }
+  localStorage.setItem('piston_right_collapsed', collapsed ? 'true' : 'false');
 }
+
+function initSidebars() {
+  if (window.innerWidth > 1024) {
+    const leftCollapsed = localStorage.getItem('piston_left_collapsed') === 'true';
+    const rightCollapsed = localStorage.getItem('piston_right_collapsed') === 'true';
+    if (leftCollapsed) setLeftPanelCollapsed(true);
+    if (rightCollapsed) setRightPanelCollapsed(true);
+  }
+}
+
+if (DOM.btnMenuDesktop) {
+  DOM.btnMenuDesktop.addEventListener('click', () => setLeftPanelCollapsed(true));
+}
+if (DOM.btnUncollapseLeft) {
+  DOM.btnUncollapseLeft.addEventListener('click', () => setLeftPanelCollapsed(false));
+}
+
+if (DOM.btnCollapseRight) {
+  DOM.btnCollapseRight.addEventListener('click', () => setRightPanelCollapsed(true));
+}
+if (DOM.btnUncollapseRight) {
+  DOM.btnUncollapseRight.addEventListener('click', () => setRightPanelCollapsed(false));
+}
+
+// Global Keyboard Shortcuts (Cmd/Ctrl + [ for left, Cmd/Ctrl + ] for right)
+document.addEventListener('keydown', (e) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const modifier = isMac ? e.metaKey : e.ctrlKey;
+  if (!modifier) return;
+  
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+  if (e.key === '[' || e.keyCode === 219) {
+    e.preventDefault();
+    const isCurrentlyCollapsed = DOM.leftPanel && DOM.leftPanel.classList.contains('collapsed');
+    setLeftPanelCollapsed(!isCurrentlyCollapsed);
+  } else if (e.key === ']' || e.keyCode === 221) {
+    e.preventDefault();
+    const isCurrentlyCollapsed = DOM.rightPanel && DOM.rightPanel.classList.contains('collapsed');
+    setRightPanelCollapsed(!isCurrentlyCollapsed);
+  }
+});
 
 if (DOM.btnTranscript && DOM.rightPanel) {
   DOM.btnTranscript.addEventListener('click', () => {
@@ -979,3 +1048,4 @@ document.addEventListener('click', (e) => {
 // App Startup
 loadTranscript();
 loadDocuments();
+initSidebars();
