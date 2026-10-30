@@ -343,16 +343,19 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Orb Hero Visualizer */
-.orb-container {
-  flex: 1;
+/* === VOLUMETRIC ORB AMBIENT BLOOMS (static/piston.css) === */
+.orb-container,
+.orb-stage-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
   width: 100%;
+  flex: 1;
   min-height: 0;
-  position: relative;
 }
+
 .orb {
   position: relative;
   width: clamp(280px, 48vh, 420px);
@@ -370,47 +373,63 @@ body {
 .orb:hover { transform: scale(1.03); }
 .orb:active { transform: scale(0.97); }
 
-.orb-canvas {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 20;
-  pointer-events: none;
-}
-.orb-core, .orb-wave {
-  display: none !important;
-}
-
-/* Atmospheric Multi-Layered Bloom behind the Canvas */
 #orb-ambient-bloom {
   position: absolute;
   width: 320px;
   height: 320px;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.19) 0%, rgba(245, 130, 49, 0.12) 44%, rgba(245, 130, 49, 0) 72%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 209, 102, 0.19) 0%,
+    rgba(245, 130, 49, 0.12) 44%,
+    rgba(245, 130, 49, 0) 72%
+  );
   filter: blur(36px);
   transform: translate(-50%, -50%);
   left: 50%;
   top: 50%;
+  z-index: 0;
   transition: opacity 0.4s ease;
   will-change: transform, opacity;
-  z-index: 5;
 }
 
 #orb-deep-bloom {
   position: absolute;
-  width: 560px;
-  height: 560px;
+  width: 540px;
+  height: 540px;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(245, 130, 49, 0.11) 0%, rgba(255, 173, 135, 0.04) 48%, rgba(8, 8, 10, 0) 74%);
+  background: radial-gradient(
+    circle,
+    rgba(245, 130, 49, 0.11) 0%,
+    rgba(255, 173, 135, 0.04) 48%,
+    rgba(8, 8, 10, 0) 74%
+  );
   filter: blur(64px);
   transform: translate(-50%, -50%);
   left: 50%;
   top: 50%;
+  z-index: 0;
   will-change: transform, opacity;
-  z-index: 4;
+}
+
+/* Ensure the orb canvas itself has zero solid CSS border or clipping radius that cuts off the outer silk veil */
+#orb-canvas,
+canvas.orb-canvas {
+  position: relative;
+  z-index: 2;
+  display: block;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.orb-core, .orb-wave {
+  display: none !important;
 }
 
 /* Context Selector - Unified Frosted Capsule */
