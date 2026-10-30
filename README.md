@@ -8,7 +8,7 @@
 
 **Talk to your documents. Get real answers. Instantly.**
 
-*A production-grade, real-time voice AI assistant that lets you speak naturally to your uploaded documents — powered by Google Gemini Live, a 4-node LangGraph RAG pipeline, local IndexedDB browser persistence, and a 60 FPS organic fluid visualizer.*
+*A production-grade, real-time voice AI assistant that lets you speak naturally to your uploaded documents — powered by Google Gemini Live, a 4-node LangGraph RAG pipeline, local IndexedDB browser persistence, and a 60 FPS volumetric WebGL frosted-glass voice orb.*
 
 <br/>
 
@@ -37,7 +37,7 @@
   - [Embedding & Vector Store (RAM + Disk)](#embedding--vector-store-ram--disk)
   - [Audio Engine & Half-Duplex Echo Prevention](#audio-engine--half-duplex-echo-prevention)
   - [Browser IndexedDB Persistence (PistonDB)](#browser-indexeddb-persistence-pistondb)
-  - [Cinematic Fluid Visualizer (Orb.js)](#cinematic-fluid-visualizer-orbjs)
+  - [Volumetric Frosted-Glass Visualizer (Orb.js)](#volumetric-frosted-glass-visualizer-orbjs)
 - [📁 Project Structure](#-project-structure)
 - [🚀 Quick Start](#-quick-start)
   - [Prerequisites](#prerequisites)
@@ -87,7 +87,7 @@ It is designed for scenarios where speed and naturalness matter:
 | 🗄️ **Full Document CRUD & Controls** | Upload, search, view chunk counts, delete individual documents, or clear all documents on demand with instant index updates. |
 | 🔄 **Server Disk Persistence** | FAISS vector store and chunk metadata serialize to `data/piston_store.faiss` and `data/piston_chunks.pkl`. |
 | 🔁 **LangGraph RAG Pipeline** | 4-node graph: **Rewrite → Retrieve → Grade → Synthesize** with per-node millisecond latency tracing. |
-| 🌊 **60 FPS Organic Fluid Visualizer** | Multi-pass Canvas 2D engine with volumetric atmospheric aura, harmonic wave membrane, 3D glint, and acoustic particles. |
+| 🔮 **60 FPS Volumetric WebGL Glass Orb** | GPU raymarched sphere with 3D Simplex domain-warped internal fluid ribbons, optical Fresnel rim, state-adaptive morphing, and micro-dust halo. |
 | 🛡️ **Relevance Gating** | Cosine score floor (0.35) + LLM YES/NO grader prevents irrelevant chunks from reaching the answer. |
 | 🗣️ **Query Rewriting** | Spoken queries (often messy) are rewritten into clean keyword-rich retrieval queries before FAISS search. |
 | 📱 **Responsive Neo-Grotesque UI** | Dark-first aesthetic, frosted glass docks, dual collapsible sidebars (`[` and `]`), and mobile drawer layout. |
@@ -106,8 +106,8 @@ It is designed for scenarios where speed and naturalness matter:
 │  ┌──────────────────┐    ┌──────────────────────────────────────────┐  │
 │  │   Left Panel     │    │            Center Stage                  │  │
 │  │  ─────────────── │    │  ┌────────────────────────────────────┐  │  │
-│  │  • Upload files  │    │  │ 60FPS Canvas 2D Fluid Visualizer   │  │  │
-│  │  • Delete docs   │    │  │ (Aura + Harmonic Wave + 3D Glint)  │  │  │
+│  │  • Upload files  │    │  │ Volumetric WebGL Frosted Glass Orb │  │  │
+│  │  • Delete docs   │    │  │ (Raymarched Fluid + Micro-Dust)    │  │  │
 │  │  • Chunk badges  │    │  └────────────────────────────────────┘  │  │
 │  │  • Filter search │    │  ╔════════════════════════════════════╗  │  │
 │  │  • Collapse ([)  │    │  ║ Floating Context Capsule Dock      ║  │  │
@@ -249,16 +249,20 @@ Defined in `static/db.js`:
 
 ---
 
-### Cinematic Fluid Visualizer (Orb.js)
+### Volumetric Frosted-Glass Visualizer (Orb.js)
 
 Defined in `static/orb.js`:
-* Replaces static CSS circles with a 6-layer Canvas 2D organic fluid visualizer:
-  * **Layer 1 (Volumetric Atmospheric Aura)**: 2.2x radial glow bloom that softens into the dark background.
-  * **Layer 2 (Acoustic Radiant Ripples)**: Concentric soundwaves expanding on voice triggers.
-  * **Layer 3 (Fluid Harmonic Wave Membrane)**: 16-point cubic Bezier wave deformation reacting dynamically to audio levels.
-  * **Layer 4 (Orbiting Planetary Rings)**: Dashed orbital rings during document retrieval and thinking states.
-  * **Layer 5 (3D Specular Glint)**: Soft spherical highlight tracking mouse/pointer position.
-  * **Layer 6 (Acoustic Particle Sparkles)**: Radiant particle bursts at volume peaks.
+* Replaces flat 2D canvas shapes with a hardware-accelerated **Volumetric WebGL Raymarched Frosted-Glass Orb** coupled with a high-performance 2D micro-dust particle system:
+  * **GPU Raymarched Sphere & Mathematical Curvature**: Pure analytic spherical raycasting ($z = \sqrt{\max(0, 1 - r^2)}$) computing surface normals, dual specular light sources (key & fill), and a multi-exponent champagne optical Fresnel rim light (`#FFF5D6`).
+  * **3D Simplex Domain-Warped Internal Fluid Ribbons**: Continuous procedural 3D Simplex noise with multi-octave domain warping creates organic, cloudy fluid ribbons that swirl smoothly through the core volume without polygon seams.
+  * **State-Adaptive Color Morphing**:
+    * **Idle**: Serene Opal Pearl breathing cycle (`#F4E6D2` / `#DFB770`) with subtle pointer parallax.
+    * **Listening**: Radiant Fresh Citrus Fruit Orange glow (`#F97316` / `#FB923C` / `#EA580C`) instantly signaling active microphone capture.
+    * **Searching / Thinking**: Cosmic Royal Purple & Electric Violet aurora (`#9333EA` / `#A855F7` / `#7E22CE`) triggered during LangGraph RAG tool invocations and FAISS similarity searches.
+    * **Speaking**: Solar Gold & Warm Amber energy (`#F59E0B` / `#D97706`) with real-time audio amplitude flaring and shockwave expansion.
+  * **Gossamer Silk Membrane & Micro-Dust Halo**: Dual undulating sub-radial silk wisps feathering outside the sphere radius, encircled by 60–100 drifting ambient micro-dust particles and atmospheric multi-layered drop bloom.
+  * **Interactive Voice States Guide**: Accessible bottom-left popover featuring 4 mini 3D volumetric glass status orbs with real-time state cues.
+  * **Floating Controls Capsule Dock**: Ultra-compact, centered floating frosted acrylic pill housing ergonomic Mute, Interrupt, and End Session controls with instant hover tooltips.
 
 ---
 
@@ -283,7 +287,7 @@ voice-rag-agent/
 ├── static/                         # Vanilla frontend (zero build step)
 │   ├── index.html                  # 3-panel semantic shell with frosted glass docks
 │   ├── app.js                      # Core frontend controller, audio scheduling, WebSockets
-│   ├── orb.js                      # 60 FPS Canvas 2D organic fluid visualizer
+│   ├── orb.js                      # 60 FPS Volumetric WebGL + 2D Canvas frosted-glass visualizer
 │   ├── db.js                       # Client-side IndexedDB persistence engine (PistonDB)
 │   ├── piston.css                  # Neo-Grotesque design system and theme variables
 │   ├── pcm-worklet.js              # AudioWorkletProcessor — off-thread 16kHz PCM capture
@@ -468,9 +472,9 @@ Piston's voice behavior is governed by 15 strict behavioral guidelines in `app/c
 ## 🎨 UI & Design
 
 Piston features a refined, dark-first interface crafted with semantic HTML5 and modern CSS custom properties:
-* **Center Stage**: High-volume, breathing organic visualizer that deforms smoothly to user and AI speech.
+* **Center Stage**: Sleek volumetric WebGL frosted-glass orb with 3D simplex fluid ribbons, optical Fresnel rim, and state-adaptive color morphing.
 * **Unified Dock**: Frosted glass floating context capsule showing active document scope with an instant dropdown picker.
-* **Action Dock**: Ergonomic Mute, Interrupt, and End Session controls.
+* **Action Dock**: Streamlined floating glass capsule dock with ergonomic Mute, Interrupt, and End Session controls and interactive tooltips.
 * **Dual Collapsible Panels**: Keep the focus on the voice conversation while preserving instant access to document libraries and transcripts.
 
 ---
@@ -511,7 +515,7 @@ All brand identity files are located in `static/assets/piston-brand/`:
 * **Vanilla HTML5 & CSS3**: Zero-framework design system with CSS custom properties.
 * **IndexedDB API**: Persistent client-side document and transcript database.
 * **Web Audio API & AudioWorklet**: Off-thread 16kHz audio capture and 24kHz stream scheduling.
-* **HTML5 Canvas 2D**: 60 FPS hardware-accelerated organic fluid visualizer.
+* **WebGL & HTML5 Canvas 2D**: 60 FPS hardware-accelerated volumetric raymarching, 3D simplex noise domain warping, and particle physics.
 
 ---
 
@@ -521,7 +525,7 @@ All brand identity files are located in `static/assets/piston-brand/`:
 - [x] **Client-side storage** — browser IndexedDB persistence so documents and chat history survive page reloads
 - [x] **Document deletion** — full REST CRUD & UI controls to delete individual documents or clear the library
 - [x] **Acoustic echo gating** — half-duplex voice gating to eliminate self-interruptions and cut-offs
-- [x] **Cinematic UI visualizer** — multi-layer fluid harmonic wave orb with volumetric backlight glow
+- [x] **Volumetric WebGL voice visualizer** — GPU-raymarched frosted glass orb with 3D simplex fluid ribbons, state-adaptive color morphing, and micro-dust halo
 - [ ] **DOCX support** — parse Microsoft Word documents via `python-docx`
 - [ ] **Hybrid retrieval** — combine BM25 sparse keyword search with dense semantic embeddings
 - [ ] **Docker container** — single-command containerized deployment
