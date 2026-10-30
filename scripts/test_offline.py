@@ -1,9 +1,12 @@
 """Offline plumbing test -- NO API key needed.
 
 Validates: document parsing, FAISS store, LangGraph wiring (with stub LLM +
-deterministic hash embeddings). Run:  python scripts/test_offline.py
+deterministic hash embeddings), document removal, filtering, and persistence.
+Run:  python scripts/test_offline.py
 """
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -61,7 +64,7 @@ check("chunks list matches", len(store.chunks) == len(chunks))
 
 # hash embeddings: identical text string must retrieve itself
 probe = chunks[0]
-query_text = f"{probe.doc} — {probe.section}\n{probe.text}"
+query_text = f"{probe.doc} - {probe.section}\n{probe.text}"
 hits = store.search(query_text, embed, k=1)
 check("search returns results", len(hits) >= 1)
 
@@ -73,6 +76,34 @@ store.add_chunks(new_chunks, embed)
 check("index grew by 1", store.index.ntotal == before + 1)
 check("chunk list grew", len(store.chunks) == before + 1)
 
+# ---- Document filtering ----
+print("== Document filtering ==")
+doc_hits = store.search("Extra content here", embed, k=5, doc_filter="extra.md")
+check("filtered search returns target document", all(c.doc == "extra.md" for c, _ in doc_hits))
+non_existent = store.search("Extra content here", embed, k=5, doc_filter="non_existent.md")
+check("filtered search with non-existent doc returns empty", len(non_existent) == 0)
+
+# ---- Document removal ----
+print("== Document removal ==")
+removed_count = store.remove_document("extra.md")
+check("removed correct chunk count", removed_count == 1)
+check("store size reverted", store.index.ntotal == before)
+check("removed doc no longer in store", all(c.doc != "extra.md" for c in store.chunks))
+
+# ---- Persistence (Save & Load) ----
+print("== Persistence (Save & Load) ==")
+temp_dir = Path(tempfile.mkdtemp())
+try:
+    store.save(temp_dir)
+    loaded_store = VectorStore.load(temp_dir, default_dim=EMBED_DIM)
+    check("loaded store exists", loaded_store is not None)
+    check("loaded store index size matches", loaded_store.index.ntotal == store.index.ntotal)
+    check("loaded store chunks count matches", len(loaded_store.chunks) == len(store.chunks))
+    loaded_hits = loaded_store.search(query_text, embed, k=1)
+    check("loaded store search works", len(loaded_hits) >= 1)
+finally:
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
 # ---- Empty store ----
 print("== Empty store ==")
 empty = VectorStore(dim=EMBED_DIM)
@@ -83,13 +114,6 @@ check("add_chunks with [] is no-op", empty.index.ntotal == 0)
 
 # ---- LangGraph wiring ----
 print("== LangGraph wiring (stub LLM) ==")
-
-# Note: hash embeddings are NOT semantic, so cosine scores will be low.
-# The graph's grade node checks RELEVANCE_FLOOR (0.35) before calling the LLM.
-# With random hash vectors, scores are typically near 0, so the graph will
-# take the no_answer path. We test that the pipeline runs without errors
-# and produces the expected output structure.
-
 
 def stub_llm(prompt: str) -> str:
     if "grading retrieved context" in prompt:
@@ -106,6 +130,9 @@ check("trace is a list", isinstance(out["trace"], list) and len(out["trace"]) > 
 check("latency_ms is a dict", isinstance(out["latency_ms"], dict))
 check("sources is a list", isinstance(out["sources"], list))
 
+# with doc filter
+out_filtered = rag.ask("what does section A say?", doc_filter="test.md")
+check("filtered ask works", isinstance(out_filtered["answer"], str))
 
 def no_llm(prompt: str) -> str:
     return "NO" if "grading" in prompt else "x"
