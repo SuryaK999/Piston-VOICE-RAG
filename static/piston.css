@@ -381,6 +381,38 @@ body {
   display: none !important;
 }
 
+/* Atmospheric Multi-Layered Bloom behind the Canvas */
+#orb-ambient-bloom {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.19) 0%, rgba(245, 130, 49, 0.12) 44%, rgba(245, 130, 49, 0) 72%);
+  filter: blur(36px);
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
+  transition: opacity 0.4s ease;
+  will-change: transform, opacity;
+  z-index: 5;
+}
+
+#orb-deep-bloom {
+  position: absolute;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(245, 130, 49, 0.11) 0%, rgba(255, 173, 135, 0.04) 48%, rgba(8, 8, 10, 0) 74%);
+  filter: blur(64px);
+  transform: translate(-50%, -50%);
+  left: 50%;
+  top: 50%;
+  will-change: transform, opacity;
+  z-index: 4;
+}
+
 /* Context Selector - Unified Frosted Capsule */
 .context-selector {
   display: inline-flex;
