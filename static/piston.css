@@ -315,7 +315,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 3.5vh 24px 2.5vh;
+  padding: 2.8vh 24px 2vh;
   min-width: 0;
   position: relative;
   overflow: hidden;
@@ -444,37 +444,37 @@ canvas.orb-canvas {
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-full);
-  padding: 4px 6px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  margin-bottom: 1.5vh;
+  padding: 3px 5px;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.04);
+  margin-bottom: 10px;
   z-index: 10;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .context-selector:hover {
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
 }
 body.dark-mode .context-selector {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.24);
 }
 body.dark-mode .context-selector:hover {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
 }
 
 .btn-context, .btn-context-count {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: 6px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
   border: none;
   background: transparent;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-main);
   cursor: pointer;
@@ -522,65 +522,69 @@ body.dark-mode .btn-context-count:hover {
   margin-bottom: 0;
 }
 
-/* Floating Voice Control Dock */
+/* Floating Voice Control Dock - Minimalist Floating Capsule */
 .voice-controls {
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 10px 24px;
+  gap: 10px;
+  padding: 5px 10px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-full);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
-  margin-bottom: 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+  margin-bottom: 4px;
   z-index: 10;
 }
 body.dark-mode .voice-controls {
-  background: rgba(255, 255, 255, 0.035);
-  border-color: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.36);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
 }
 .ctrl-btn {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   background: transparent;
   border: none;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+}
+.ctrl-btn span {
+  display: none;
 }
 .ctrl-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.30;
   cursor: not-allowed;
 }
 .ctrl-btn:not(:disabled):hover {
   color: var(--text-main);
-  transform: translateY(-2px);
+  transform: scale(1.06);
 }
 .icon-circle {
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   background: rgba(0, 0, 0, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
   color: var(--text-main);
 }
+.icon-circle svg {
+  width: 16px;
+  height: 16px;
+}
 .ctrl-btn:not(:disabled):hover .icon-circle {
-  border-color: rgba(0, 0, 0, 0.2);
-  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--text-main);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 body.dark-mode .icon-circle {
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -588,10 +592,10 @@ body.dark-mode .icon-circle {
   color: var(--text-secondary);
 }
 body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
 }
 
 .ctrl-btn#btn-interrupt .icon-circle {
@@ -602,13 +606,13 @@ body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
 .ctrl-btn#btn-interrupt:not(:disabled):hover .icon-circle {
   background: rgba(249, 115, 22, 0.18);
   border-color: var(--accent);
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.25);
 }
 .ctrl-btn#btn-interrupt .icon-square {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   background: var(--accent);
-  border-radius: 3px;
+  border-radius: 2.5px;
 }
 .ctrl-btn#btn-end .icon-circle {
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -619,7 +623,7 @@ body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
   border-color: rgba(239, 68, 68, 0.6);
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
 }
 
 /* Right Panel */
@@ -771,17 +775,16 @@ body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
   .orb { width: clamp(200px, 32vh, 260px); height: clamp(200px, 32vh, 260px); }
   #orb-ambient-bloom { width: 220px; height: 220px; }
   #orb-deep-bloom { width: 340px; height: 340px; }
-  .voice-controls { gap: 16px; padding: 8px 18px; margin-bottom: 6px; }
-  .icon-circle { width: 46px; height: 46px; }
+  .voice-controls { gap: 8px; padding: 4px 8px; margin-bottom: 4px; }
+  .icon-circle { width: 36px; height: 36px; }
 }
 @media (max-width: 480px) {
   .stage-header h1 { font-size: 1.55rem; }
   .orb { width: clamp(170px, 28vh, 220px); height: clamp(170px, 28vh, 220px); }
   #orb-ambient-bloom { width: 190px; height: 190px; }
   #orb-deep-bloom { width: 280px; height: 280px; }
-  .voice-controls { gap: 12px; padding: 6px 14px; }
-  .icon-circle { width: 40px; height: 40px; }
-  .ctrl-btn { font-size: 0.65rem; }
+  .voice-controls { gap: 6px; padding: 4px 6px; }
+  .icon-circle { width: 34px; height: 34px; }
   .context-selector { padding: 3px 6px; }
 }
 /* Trace Chip */
