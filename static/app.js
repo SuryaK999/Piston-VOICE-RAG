@@ -89,9 +89,9 @@ function resetInactivityTimer() {
   inactivityTimer = setTimeout(() => {
     if (appState === 'listening' && ws && ws.readyState === WebSocket.OPEN) {
       playEndSound();
-      stopSession(false, 'Session Timeout', 'No activity for 15 seconds');
+      stopSession(false, 'Session Timeout', 'No activity for 2 minutes');
     }
-  }, 15000);
+  }, 120000);
 }
 
 function stopInactivityTimer() {
@@ -389,6 +389,9 @@ function flushPlayback() {
 
 function playPcm24k(bytes) {
   if (isInterrupting) return;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
   if (appState !== 'speaking') {
     setState('speaking', 'Piston is speaking', `Answering from ${activeDocId ? uploadedDocs.find(d=>d.id===activeDocId).name : 'knowledge base'}`);
     stopInactivityTimer();
@@ -457,22 +460,14 @@ async function startSession() {
           
           const pcm = new Int16Array(e.data);
           let sum = 0;
-          for (let i=0; i<pcm.length; i+=10) { 
+          for (let i = 0; i < pcm.length; i += 10) { 
             const val = pcm[i] / 32768;
             sum += val * val; 
           }
-          micAnalyzer.rms = Math.sqrt(sum / (pcm.length/10));
+          micAnalyzer.rms = Math.sqrt(sum / (pcm.length / 10));
           
           if (micAnalyzer.rms > 0.03) {
             resetInactivityTimer();
-            if (appState === 'speaking' && !isInterrupting) {
-              isInterrupting = true;
-              flushPlayback();
-              setState('listening', 'Listening...', 'Capturing your voice');
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'client_content', turn_complete: true }));
-              }
-            }
           }
         };
         source.connect(workletNode);
@@ -617,9 +612,10 @@ DOM.btnMute.addEventListener('click', () => {
 
 DOM.btnInterrupt.addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'client_content', turn_complete: true }));
+    isInterrupting = true;
     flushPlayback();
     setState('listening', 'Listening...', 'Capturing your voice');
+    resetInactivityTimer();
   }
 });
 
