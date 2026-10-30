@@ -446,8 +446,8 @@ body.dark-mode .guide-popover {
 
 .orb {
   position: relative;
-  width: clamp(280px, 48vh, 420px);
-  height: clamp(280px, 48vh, 420px);
+  width: clamp(290px, 50vh, 440px);
+  height: clamp(290px, 50vh, 440px);
   border: none !important;
   border-radius: 50% !important;
   background: transparent !important;
@@ -470,8 +470,8 @@ body.dark-mode .guide-popover {
 
 #orb-ambient-bloom {
   position: absolute;
-  width: 320px;
-  height: 320px;
+  width: 340px;
+  height: 340px;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(
@@ -491,8 +491,8 @@ body.dark-mode .guide-popover {
 
 #orb-deep-bloom {
   position: absolute;
-  width: 540px;
-  height: 540px;
+  width: 570px;
+  height: 570px;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(
@@ -840,9 +840,9 @@ body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
   .left-panel.collapsed { margin-left: -240px; }
   .right-panel { width: 280px; }
   .right-panel.collapsed { margin-right: -280px; }
-  .orb { width: clamp(220px, 38vh, 320px); height: clamp(220px, 38vh, 320px); }
-  #orb-deep-bloom { width: 440px; height: 440px; }
-  #orb-ambient-bloom { width: 280px; height: 280px; }
+  .orb { width: clamp(235px, 40vh, 340px); height: clamp(235px, 40vh, 340px); }
+  #orb-deep-bloom { width: 460px; height: 460px; }
+  #orb-ambient-bloom { width: 295px; height: 295px; }
 }
 @media (max-width: 768px) {
   .mobile-only { display: inline-flex !important; }
@@ -866,17 +866,17 @@ body.dark-mode .ctrl-btn:not(:disabled):hover .icon-circle {
   .right-panel.open { transform: translateX(0); }
   .stage-header h1 { font-size: 1.85rem; }
   .stage-header p { font-size: 0.85rem; }
-  .orb { width: clamp(200px, 32vh, 260px); height: clamp(200px, 32vh, 260px); }
-  #orb-ambient-bloom { width: 220px; height: 220px; }
-  #orb-deep-bloom { width: 340px; height: 340px; }
+  .orb { width: clamp(210px, 34vh, 280px); height: clamp(210px, 34vh, 280px); }
+  #orb-ambient-bloom { width: 235px; height: 235px; }
+  #orb-deep-bloom { width: 360px; height: 360px; }
   .voice-controls { gap: 8px; padding: 4px 8px; margin-bottom: 4px; }
   .icon-circle { width: 36px; height: 36px; }
 }
 @media (max-width: 480px) {
   .stage-header h1 { font-size: 1.55rem; }
-  .orb { width: clamp(170px, 28vh, 220px); height: clamp(170px, 28vh, 220px); }
-  #orb-ambient-bloom { width: 190px; height: 190px; }
-  #orb-deep-bloom { width: 280px; height: 280px; }
+  .orb { width: clamp(180px, 30vh, 235px); height: clamp(180px, 30vh, 235px); }
+  #orb-ambient-bloom { width: 205px; height: 205px; }
+  #orb-deep-bloom { width: 300px; height: 300px; }
   .voice-controls { gap: 6px; padding: 4px 6px; }
   .icon-circle { width: 34px; height: 34px; }
   .context-selector { padding: 3px 6px; }
