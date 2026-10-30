@@ -29,6 +29,7 @@ const FRAGMENT_SHADER_SRC = `
   uniform float u_audio;
   uniform float u_state_thinking;
   uniform float u_state_speaking;
+  uniform float u_state_listening;
   uniform float u_state_idle;
   uniform float u_shockwave;
   uniform vec2 u_pointer;
@@ -103,33 +104,47 @@ const FRAGMENT_SHADER_SRC = `
     float r = length(p);
     float angle = atan(p.y, p.x);
 
-    // 1. Solar Amber / Warm Gold Palette (Active Listening / Speaking)
-    vec3 baseObsidian   = vec3(0.16, 0.07, 0.03);  // Deep smoky umber/sienna depth
-    vec3 baseWarmAmber  = vec3(0.94, 0.50, 0.20);  // Rich warm orange-amber
-    vec3 baseSoftPeach  = vec3(0.98, 0.68, 0.48);  // Creamy peach-apricot
-    vec3 baseSoftGold   = vec3(1.00, 0.85, 0.48);  // Luminous warm gold
-    vec3 baseChampagne  = vec3(1.00, 0.96, 0.86);  // Crisp champagne rim highlight
+    // 1. Juicy Orange Fruit Palette (Active Listening mode - vibrant citrus fruit glow)
+    vec3 listenObsidian   = vec3(0.24, 0.06, 0.01);  // Deep terracotta citrus shadow
+    vec3 listenWarmAmber  = vec3(0.98, 0.44, 0.08);  // Fresh juicy citrus fruit orange (#F97316)
+    vec3 listenSoftPeach  = vec3(1.00, 0.58, 0.16);  // Radiant ripe mandarin orange (#FB923C)
+    vec3 listenSoftGold   = vec3(1.00, 0.74, 0.28);  // Luminous warm amber highlight (#FBBF24)
+    vec3 listenChampagne  = vec3(1.00, 0.93, 0.80);  // Crisp warm citrus rim
 
-    // 2. Serene Opal / Warm Pearl Palette (Idle standby breathing)
+    // 2. Solar Gold / Warm Apricot Palette (Active Speaking mode - bright audio flares)
+    vec3 speakObsidian   = vec3(0.16, 0.07, 0.03);  // Deep smoky sienna
+    vec3 speakWarmAmber  = vec3(0.94, 0.52, 0.20);  // Warm amber
+    vec3 speakSoftPeach  = vec3(0.98, 0.68, 0.46);  // Soft apricot
+    vec3 speakSoftGold   = vec3(1.00, 0.86, 0.48);  // Luminous gold
+    vec3 speakChampagne  = vec3(1.00, 0.96, 0.86);  // Crisp champagne rim
+
+    // 3. Serene Opal / Warm Pearl Palette (Idle standby breathing)
     vec3 idleObsidian   = vec3(0.13, 0.07, 0.04);
     vec3 idleWarmAmber  = vec3(0.88, 0.52, 0.25);
     vec3 idleSoftPeach  = vec3(0.94, 0.72, 0.56);
     vec3 idleSoftGold   = vec3(0.96, 0.84, 0.62);
     vec3 idleChampagne  = vec3(0.99, 0.96, 0.90);
 
-    // 3. Cosmic Purple / Electric Violet Palette (Searching knowledge base / RAG / Thinking)
+    // 4. Cosmic Purple / Electric Violet Palette (Searching knowledge base / RAG / Thinking)
     vec3 purpleObsidian  = vec3(0.12, 0.03, 0.22); // Deep midnight plum depth
     vec3 purpleWarmAmber = vec3(0.58, 0.20, 0.92); // Vivid royal violet
     vec3 purpleSoftPeach = vec3(0.84, 0.32, 0.88); // Electric fuchsia / orchid
     vec3 purpleSoftGold  = vec3(0.76, 0.56, 0.98); // Radiant lavender-lilac
     vec3 purpleChampagne = vec3(0.97, 0.93, 1.00); // Shimmering crystal rim
 
+    // Active color: blends between fruit orange (listening) and solar gold (speaking)
+    vec3 activeObsidian   = mix(listenObsidian, speakObsidian, u_state_speaking);
+    vec3 activeWarmAmber  = mix(listenWarmAmber, speakWarmAmber, u_state_speaking);
+    vec3 activeSoftPeach  = mix(listenSoftPeach, speakSoftPeach, u_state_speaking);
+    vec3 activeSoftGold   = mix(listenSoftGold, speakSoftGold, u_state_speaking);
+    vec3 activeChampagne  = mix(listenChampagne, speakChampagne, u_state_speaking);
+
     // Smooth state-driven color palette morphing
-    vec3 colObsidian  = mix(mix(baseObsidian, idleObsidian, u_state_idle), purpleObsidian, u_state_thinking);
-    vec3 colWarmAmber = mix(mix(baseWarmAmber, idleWarmAmber, u_state_idle), purpleWarmAmber, u_state_thinking);
-    vec3 colSoftPeach = mix(mix(baseSoftPeach, idleSoftPeach, u_state_idle), purpleSoftPeach, u_state_thinking);
-    vec3 colSoftGold  = mix(mix(baseSoftGold, idleSoftGold, u_state_idle), purpleSoftGold, u_state_thinking);
-    vec3 colChampagne = mix(mix(baseChampagne, idleChampagne, u_state_idle), purpleChampagne, u_state_thinking);
+    vec3 colObsidian  = mix(mix(activeObsidian, idleObsidian, u_state_idle), purpleObsidian, u_state_thinking);
+    vec3 colWarmAmber = mix(mix(activeWarmAmber, idleWarmAmber, u_state_idle), purpleWarmAmber, u_state_thinking);
+    vec3 colSoftPeach = mix(mix(activeSoftPeach, idleSoftPeach, u_state_idle), purpleSoftPeach, u_state_thinking);
+    vec3 colSoftGold  = mix(mix(activeSoftGold, idleSoftGold, u_state_idle), purpleSoftGold, u_state_thinking);
+    vec3 colChampagne = mix(mix(activeChampagne, idleChampagne, u_state_idle), purpleChampagne, u_state_thinking);
 
     // Delicate, translucent outer silk wisps (just outside r = 1.0, like the reference left/right arcs)
     float wispWave1 = snoise(vec3(cos(angle) * 1.3, sin(angle) * 1.3, u_time * 0.28));
@@ -310,6 +325,7 @@ class VoiceOrbVisualizer {
 
     this.thinkingWeight = 0.0;
     this.speakingWeight = 0.0;
+    this.listeningWeight = 0.0;
     this.idleWeight = 1.0;
     this.shockwave = 0.0;
 
@@ -408,6 +424,7 @@ class VoiceOrbVisualizer {
       u_audio: gl.getUniformLocation(this.program, 'u_audio'),
       u_state_thinking: gl.getUniformLocation(this.program, 'u_state_thinking'),
       u_state_speaking: gl.getUniformLocation(this.program, 'u_state_speaking'),
+      u_state_listening: gl.getUniformLocation(this.program, 'u_state_listening'),
       u_state_idle: gl.getUniformLocation(this.program, 'u_state_idle'),
       u_shockwave: gl.getUniformLocation(this.program, 'u_shockwave'),
       u_pointer: gl.getUniformLocation(this.program, 'u_pointer'),
@@ -613,6 +630,7 @@ class VoiceOrbVisualizer {
 
     this.thinkingWeight = lerp(this.thinkingWeight, this.state === 'thinking' ? 1.0 : 0.0, 0.04);
     this.speakingWeight = lerp(this.speakingWeight, this.state === 'speaking' ? 1.0 : 0.0, 0.07);
+    this.listeningWeight = lerp(this.listeningWeight, this.state === 'listening' ? 1.0 : 0.0, 0.06);
     this.idleWeight = lerp(this.idleWeight, this.state === 'idle' ? 1.0 : 0.0, 0.05);
     this.shockwave = lerp(this.shockwave, 0.0, 0.06);
 
@@ -633,6 +651,7 @@ class VoiceOrbVisualizer {
       gl.uniform1f(this.uniforms.u_audio, this.smoothedAudio);
       gl.uniform1f(this.uniforms.u_state_thinking, this.thinkingWeight);
       gl.uniform1f(this.uniforms.u_state_speaking, this.speakingWeight);
+      gl.uniform1f(this.uniforms.u_state_listening, this.listeningWeight);
       gl.uniform1f(this.uniforms.u_state_idle, this.idleWeight);
       gl.uniform1f(this.uniforms.u_shockwave, this.shockwave);
       gl.uniform2f(this.uniforms.u_pointer, this.pointer.x, this.pointer.y);
@@ -675,7 +694,7 @@ class VoiceOrbVisualizer {
       ambientBloomEl.style.opacity = baseAmbientOpacity.toFixed(2);
       deepBloomEl.style.opacity = (isDark ? 0.90 : 0.55).toFixed(2);
 
-      // Adaptive color gradient: Cosmic Purple during Knowledge Base Search vs Solar Amber in other states
+      // Adaptive color gradient: Cosmic Purple (Searching) vs Fruit Orange (Listening) vs Solar Amber (Idle/Speaking)
       if (this.thinkingWeight > 0.05) {
         ambientBloomEl.style.background = isDark
           ? 'radial-gradient(circle, rgba(192, 132, 252, 0.24) 0%, rgba(147, 51, 234, 0.14) 44%, rgba(147, 51, 234, 0) 72%)'
@@ -683,6 +702,13 @@ class VoiceOrbVisualizer {
         deepBloomEl.style.background = isDark
           ? 'radial-gradient(circle, rgba(126, 34, 206, 0.14) 0%, rgba(168, 85, 247, 0.05) 48%, rgba(126, 34, 206, 0) 74%)'
           : 'radial-gradient(circle, rgba(126, 34, 206, 0.07) 0%, rgba(168, 85, 247, 0.03) 48%, rgba(126, 34, 206, 0) 74%)';
+      } else if (this.listeningWeight > 0.1) {
+        ambientBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(249, 115, 22, 0.24) 0%, rgba(234, 88, 12, 0.14) 44%, rgba(234, 88, 12, 0) 72%)'
+          : 'radial-gradient(circle, rgba(249, 115, 22, 0.16) 0%, rgba(234, 88, 12, 0.09) 44%, rgba(234, 88, 12, 0) 72%)';
+        deepBloomEl.style.background = isDark
+          ? 'radial-gradient(circle, rgba(234, 88, 12, 0.13) 0%, rgba(251, 146, 60, 0.05) 48%, rgba(234, 88, 12, 0) 74%)'
+          : 'radial-gradient(circle, rgba(234, 88, 12, 0.08) 0%, rgba(251, 146, 60, 0.03) 48%, rgba(234, 88, 12, 0) 74%)';
       } else {
         ambientBloomEl.style.background = isDark
           ? 'radial-gradient(circle, rgba(255, 209, 102, 0.19) 0%, rgba(245, 130, 49, 0.12) 44%, rgba(245, 130, 49, 0) 72%)'
