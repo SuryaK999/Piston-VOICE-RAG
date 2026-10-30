@@ -33,11 +33,12 @@ const DOM = {
 };
 
 let orbVisualizer = null;
-if (window.OrbVisualizer && DOM.orbCanvas) {
+const VisualizerClass = window.VoiceOrbVisualizer || window.OrbVisualizer;
+if (VisualizerClass && DOM.orbCanvas) {
   try {
-    orbVisualizer = new window.OrbVisualizer(DOM.orbCanvas);
+    orbVisualizer = new VisualizerClass(DOM.orbCanvas);
   } catch (err) {
-    console.warn('Canvas OrbVisualizer fallback to CSS orb:', err);
+    console.warn('Canvas VoiceOrbVisualizer fallback to CSS orb:', err);
   }
 }
 
@@ -158,6 +159,9 @@ function setState(newState, message, subtitle) {
   DOM.orb.className = `orb state-${newState}`;
   if (orbVisualizer) {
     orbVisualizer.setState(newState);
+    if (newState === 'idle' || newState === 'error') {
+      orbVisualizer.setAudioLevel(0);
+    }
   }
   
   if (message) DOM.stageTitle.textContent = message;
