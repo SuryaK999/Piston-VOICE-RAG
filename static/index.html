@@ -88,19 +88,110 @@
         <div class="guide-container">
           <button class="btn-guide" aria-label="Voice states guide" tabindex="0">?</button>
           <div class="guide-popover">
-            <h4>Voice states</h4>
-            <ul>
+            <div class="guide-popover-header">
+              <h4>Voice States Guide</h4>
+              <span class="guide-badge">Volumetric</span>
+            </div>
+            <ul class="guide-list">
               <li>
-                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-idle" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#f4f4f5"/><stop offset="100%" stop-color="#e4e4e7"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-idle)"/></svg>
-                <div><strong>Idle</strong> - ready to start<br><span>Piston is waiting for input.</span></div>
+                <svg class="state-orb-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="mini-orb-idle" cx="36%" cy="32%" r="68%">
+                      <stop offset="0%" stop-color="#FFFFFF"/>
+                      <stop offset="30%" stop-color="#FEF3C7"/>
+                      <stop offset="65%" stop-color="#D97706"/>
+                      <stop offset="100%" stop-color="#451A03"/>
+                    </radialGradient>
+                    <radialGradient id="mini-rim-idle" cx="50%" cy="50%" r="50%">
+                      <stop offset="78%" stop-color="#FFFBEB" stop-opacity="0"/>
+                      <stop offset="98%" stop-color="#FEF3C7" stop-opacity="0.95"/>
+                      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="12" cy="12" r="10.5" fill="#FDE68A" opacity="0.25"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-orb-idle)"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-rim-idle)"/>
+                  <ellipse cx="9" cy="7.5" rx="3.5" ry="2" fill="#FFFFFF" opacity="0.75" transform="rotate(-25 9 7.5)"/>
+                </svg>
+                <div class="guide-desc">
+                  <strong>Idle <span class="guide-tone">(Opal Pearl)</span></strong>
+                  <span>Standby mode, ready to talk or upload documents.</span>
+                </div>
               </li>
               <li>
-                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-listen" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fed7aa"/><stop offset="50%" stop-color="#fdba74"/><stop offset="100%" stop-color="#fb923c"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-listen)"/></svg>
-                <div><strong>Listening</strong> - capturing voice<br><span>Your microphone is on.</span></div>
+                <svg class="state-orb-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="mini-orb-listen" cx="36%" cy="32%" r="68%">
+                      <stop offset="0%" stop-color="#FFEDD5"/>
+                      <stop offset="28%" stop-color="#FB923C"/>
+                      <stop offset="68%" stop-color="#EA580C"/>
+                      <stop offset="100%" stop-color="#431407"/>
+                    </radialGradient>
+                    <radialGradient id="mini-rim-listen" cx="50%" cy="50%" r="50%">
+                      <stop offset="78%" stop-color="#FFEDD5" stop-opacity="0"/>
+                      <stop offset="98%" stop-color="#FED7AA" stop-opacity="0.95"/>
+                      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="12" cy="12" r="10.5" fill="#F97316" opacity="0.32"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-orb-listen)"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-rim-listen)"/>
+                  <ellipse cx="9" cy="7.5" rx="3.5" ry="2" fill="#FFFFFF" opacity="0.75" transform="rotate(-25 9 7.5)"/>
+                </svg>
+                <div class="guide-desc">
+                  <strong>Listening <span class="guide-tone">(Fruit Orange)</span></strong>
+                  <span>Microphone active, capturing your voice with live wave reactivity.</span>
+                </div>
               </li>
               <li>
-                <svg class="state-icon" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="grad-speak" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></radialGradient></defs><circle cx="8" cy="8" r="8" fill="url(#grad-speak)"/></svg>
-                <div><strong>Speaking</strong> - Piston is replying<br><span>Audio streaming with waveform.</span></div>
+                <svg class="state-orb-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="mini-orb-search" cx="36%" cy="32%" r="68%">
+                      <stop offset="0%" stop-color="#F3E8FF"/>
+                      <stop offset="30%" stop-color="#C084FC"/>
+                      <stop offset="68%" stop-color="#9333EA"/>
+                      <stop offset="100%" stop-color="#3B0764"/>
+                    </radialGradient>
+                    <radialGradient id="mini-rim-search" cx="50%" cy="50%" r="50%">
+                      <stop offset="78%" stop-color="#F3E8FF" stop-opacity="0"/>
+                      <stop offset="98%" stop-color="#E9D5FF" stop-opacity="0.95"/>
+                      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="12" cy="12" r="10.5" fill="#A855F7" opacity="0.32"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-orb-search)"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-rim-search)"/>
+                  <ellipse cx="9" cy="7.5" rx="3.5" ry="2" fill="#FFFFFF" opacity="0.75" transform="rotate(-25 9 7.5)"/>
+                </svg>
+                <div class="guide-desc">
+                  <strong>Searching <span class="guide-tone">(Cosmic Purple)</span></strong>
+                  <span>Querying knowledge base, vector chunk retrieval in progress.</span>
+                </div>
+              </li>
+              <li>
+                <svg class="state-orb-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="mini-orb-speak" cx="36%" cy="32%" r="68%">
+                      <stop offset="0%" stop-color="#FEF08A"/>
+                      <stop offset="30%" stop-color="#FBBF24"/>
+                      <stop offset="68%" stop-color="#EA580C"/>
+                      <stop offset="100%" stop-color="#451A03"/>
+                    </radialGradient>
+                    <radialGradient id="mini-rim-speak" cx="50%" cy="50%" r="50%">
+                      <stop offset="78%" stop-color="#FEF08A" stop-opacity="0"/>
+                      <stop offset="98%" stop-color="#FDE047" stop-opacity="0.95"/>
+                      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+                    </radialGradient>
+                  </defs>
+                  <circle cx="12" cy="12" r="10.5" fill="#FBBF24" opacity="0.32"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-orb-speak)"/>
+                  <circle cx="12" cy="12" r="9" fill="url(#mini-rim-speak)"/>
+                  <ellipse cx="9" cy="7.5" rx="3.5" ry="2" fill="#FFFFFF" opacity="0.75" transform="rotate(-25 9 7.5)"/>
+                </svg>
+                <div class="guide-desc">
+                  <strong>Speaking <span class="guide-tone">(Solar Gold)</span></strong>
+                  <span>Streaming audio reply with animated speech flare.</span>
+                </div>
               </li>
             </ul>
           </div>
