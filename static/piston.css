@@ -365,17 +365,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
   will-change: transform;
+  box-shadow: 0 0 50px rgba(245, 130, 49, 0.20), 0 0 120px rgba(255, 209, 102, 0.08);
 }
 .orb:hover { transform: scale(1.03); }
 .orb:active { transform: scale(0.97); }
+
+.orb.state-listening,
+.orb.state-speaking {
+  box-shadow: 0 0 50px rgba(245, 130, 49, 0.35), 0 0 120px rgba(255, 209, 102, 0.12);
+}
+
+.orb.state-thinking,
+.orb.state-searching {
+  box-shadow: 0 0 50px rgba(245, 130, 49, 0.28), 0 0 120px rgba(255, 209, 102, 0.10);
+}
 
 .orb-canvas {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  border-radius: 50%;
   z-index: 20;
   pointer-events: none;
 }
