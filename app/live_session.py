@@ -191,17 +191,20 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
             stop.set()
             for t in pending:
                 t.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
             for t in done:
-                exc = t.exception()
-                if exc:
-                    raise exc
+                if not t.cancelled():
+                    exc = t.exception()
+                    if exc:
+                        raise exc
 
-    except Exception as exc:  # surface API errors in the UI, then close
-        log.exception("voice session error")
-        try:
-            await _send_json(ws, {"type": "error", "message": str(exc)})
-        except Exception:
-            pass
+    except (Exception, asyncio.CancelledError) as exc:  # surface API errors in the UI, then close
+        if not isinstance(exc, asyncio.CancelledError):
+            log.exception("voice session error")
+            try:
+                await _send_json(ws, {"type": "error", "message": str(exc)})
+            except Exception:
+                pass
     finally:
         stop.set()
         try:

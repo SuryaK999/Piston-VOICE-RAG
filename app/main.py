@@ -44,14 +44,14 @@ def build_rag_service() -> RAGService:
         return resp.text or ""
 
     store = VectorStore(dim=EMBED_DIM)
-    log.info("empty vector store created (dim=%d) — upload documents to populate", EMBED_DIM)
+    log.info("empty vector store created (dim=%d) - upload documents to populate", EMBED_DIM)
     return RAGService(store, embed_fn, llm)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not config.GOOGLE_API_KEY:
-        log.warning("GOOGLE_API_KEY is not set — voice sessions will fail. "
+        log.warning("GOOGLE_API_KEY is not set - voice sessions will fail. "
                     "Copy .env.example to .env and add your key.")
         app.state.rag = None
     else:
