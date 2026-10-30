@@ -1,4 +1,4 @@
-/* Piston Frontend Logic - v2.1.0 */
+/* Piston Frontend Logic - v2.2.0 */
 
 const DOM = {
   uploadInput: document.getElementById('doc-upload'),
@@ -45,16 +45,25 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// --- Theme Management ---
-function initTheme() {
-  const savedTheme = localStorage.getItem('piston_theme');
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+// --- Theme Management with IndexedDB ---
+async function initTheme() {
+  let isDark = false;
+  if (window.pistonDB) {
+    const saved = await window.pistonDB.getSetting('theme');
+    if (saved !== null) {
+      isDark = saved === 'dark';
+    } else {
+      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+  } else {
+    isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
   
   if (isDark) {
     document.body.classList.add('dark-mode');
     updateThemeIcons(true);
   } else {
+    document.body.classList.remove('dark-mode');
     updateThemeIcons(false);
   }
 }
@@ -70,10 +79,12 @@ function updateThemeIcons(isDark) {
 }
 
 if (DOM.btnThemeToggle) {
-  DOM.btnThemeToggle.addEventListener('click', () => {
+  DOM.btnThemeToggle.addEventListener('click', async () => {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
-    localStorage.setItem('piston_theme', isDark ? 'dark' : 'light');
+    if (window.pistonDB) {
+      await window.pistonDB.setSetting('theme', isDark ? 'dark' : 'light');
+    }
     updateThemeIcons(isDark);
   });
 }
@@ -145,7 +156,7 @@ function setState(newState, message, subtitle) {
   DOM.btnEnd.disabled = isInactive;
 }
 
-// --- Document Management & Persistence ---
+// --- Document Management & IndexedDB Persistence ---
 
 function formatSize(bytes) {
   if (!bytes) return '';
@@ -288,34 +299,41 @@ function renderDocList() {
 }
 
 async function loadDocuments() {
-  // Local cache for immediate render (no flash)
-  const cached = localStorage.getItem('piston_uploaded_docs');
-  if (cached) {
+  // 1. Instant load from local IndexedDB (zero flash)
+  if (window.pistonDB) {
     try {
-      uploadedDocs = JSON.parse(cached);
-      const savedActive = localStorage.getItem('piston_active_doc');
-      if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
-        activeDocId = savedActive;
+      const localDocs = await window.pistonDB.getAllDocuments();
+      if (localDocs && localDocs.length > 0) {
+        uploadedDocs = localDocs;
+        const savedActive = await window.pistonDB.getSetting('activeDocId');
+        if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
+          activeDocId = savedActive;
+        }
+        renderDocList();
       }
-      renderDocList();
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Could not read documents from IndexedDB', err);
+    }
   }
 
-  // Authoritative fetch from server
+  // 2. Authoritative sync with backend
   try {
     const res = await fetch('/documents');
     if (res.ok) {
       const data = await res.json();
       uploadedDocs = data;
-      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
 
-      const savedActive = localStorage.getItem('piston_active_doc');
-      if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
-        activeDocId = savedActive;
-      } else if (activeDocId && !uploadedDocs.some(d => d.id === activeDocId)) {
-        activeDocId = null;
-        localStorage.removeItem('piston_active_doc');
+      if (window.pistonDB) {
+        await window.pistonDB.setAllDocuments(uploadedDocs);
+        const savedActive = await window.pistonDB.getSetting('activeDocId');
+        if (savedActive && uploadedDocs.some(d => d.id === savedActive)) {
+          activeDocId = savedActive;
+        } else if (activeDocId && !uploadedDocs.some(d => d.id === activeDocId)) {
+          activeDocId = null;
+          await window.pistonDB.deleteSetting('activeDocId');
+        }
       }
+
       renderDocList();
       syncContextToBackend();
     }
@@ -324,16 +342,23 @@ async function loadDocuments() {
   }
 }
 
-function selectDoc(id) {
+async function selectDoc(id) {
   activeDocId = id;
+  if (window.pistonDB) {
+    if (id) {
+      await window.pistonDB.setSetting('activeDocId', id);
+    } else {
+      await window.pistonDB.deleteSetting('activeDocId');
+    }
+  }
+  
   if (id) {
-    localStorage.setItem('piston_active_doc', id);
     const doc = uploadedDocs.find(d => d.id === id);
     showToast(`Context focused: ${doc ? doc.name : 'Document'}`, 'info');
   } else {
-    localStorage.removeItem('piston_active_doc');
     showToast('Context: Everything (All Documents)', 'info');
   }
+  
   renderDocList();
   syncContextToBackend();
   if (DOM.contextDropdown && DOM.contextDropdown.classList.contains('open')) {
@@ -354,12 +379,16 @@ async function deleteDoc(e, docName) {
     if (!res.ok) throw new Error(data.error || 'Failed to remove document');
 
     uploadedDocs = uploadedDocs.filter(d => d.name !== docName);
-    localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+    if (window.pistonDB) {
+      await window.pistonDB.deleteDocument(docName);
+    }
 
     const activeDoc = uploadedDocs.find(d => d.id === activeDocId);
     if (!activeDoc) {
       activeDocId = null;
-      localStorage.removeItem('piston_active_doc');
+      if (window.pistonDB) {
+        await window.pistonDB.deleteSetting('activeDocId');
+      }
     }
 
     renderDocList();
@@ -383,8 +412,10 @@ async function clearAllDocs() {
 
     uploadedDocs = [];
     activeDocId = null;
-    localStorage.removeItem('piston_uploaded_docs');
-    localStorage.removeItem('piston_active_doc');
+    if (window.pistonDB) {
+      await window.pistonDB.clearDocuments();
+      await window.pistonDB.deleteSetting('activeDocId');
+    }
 
     renderDocList();
     syncContextToBackend();
@@ -432,12 +463,16 @@ DOM.uploadInput.addEventListener('change', async (e) => {
       if (data.doc && data.doc.chunks_count) {
         newDoc.chunks_count = data.doc.chunks_count;
       }
-      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+      if (window.pistonDB) {
+        await window.pistonDB.putDocument(newDoc);
+      }
       showToast(`"${file.name}" indexed successfully!`, 'success');
     } catch (err) {
       alert(`Error uploading ${file.name}: ${err.message}`);
       uploadedDocs = uploadedDocs.filter(d => d.name !== file.name);
-      localStorage.setItem('piston_uploaded_docs', JSON.stringify(uploadedDocs));
+      if (window.pistonDB) {
+        await window.pistonDB.deleteDocument(file.name);
+      }
       showToast(`Failed to upload "${file.name}"`, 'error');
     }
     renderDocList();
@@ -468,9 +503,10 @@ if (DOM.docSearch) {
   });
 }
 
-// --- Transcript Management ---
+// --- Transcript Management with IndexedDB ---
 
-function saveTranscript() {
+async function saveTranscript() {
+  if (!window.pistonDB) return;
   const messages = [];
   DOM.transcript.querySelectorAll('.msg').forEach(msgNode => {
     const isUser = msgNode.classList.contains('user');
@@ -480,42 +516,49 @@ function saveTranscript() {
       messages.push({
         role: isUser ? 'user' : 'agent',
         text: textNode.textContent,
-        time: timeNode.textContent
+        time: timeNode.textContent,
+        timestamp: Date.now()
       });
     }
   });
-  localStorage.setItem('piston_transcript', JSON.stringify(messages));
+  
+  try {
+    await window.pistonDB.clearTranscripts();
+    for (const msg of messages) {
+      await window.pistonDB.addTranscriptMessage(msg);
+    }
+  } catch (err) {
+    console.warn('Could not persist transcript to IndexedDB', err);
+  }
 }
 
-function loadTranscript() {
-  const saved = localStorage.getItem('piston_transcript');
-  if (saved) {
-    try {
-      const messages = JSON.parse(saved);
-      if (messages.length > 0) {
-        const empty = DOM.transcript.querySelector('.empty-transcript');
-        if (empty) empty.remove();
-        
-        messages.forEach(m => {
-          const div = document.createElement('div');
-          div.className = `msg ${m.role}`;
-          div.innerHTML = `
-            <div class="msg-avatar">${m.role === 'user' ? 'Y' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v4M8 8v12M12 4v20M16 8v12M20 12v4"/></svg>'}</div>
-            <div class="msg-content">
-              <div class="msg-header">
-                <span class="msg-author">${m.role === 'user' ? 'You' : 'Piston'}</span>
-                <span class="msg-time">${m.time}</span>
-              </div>
-              <div class="msg-text">${m.text}</div>
+async function loadTranscript() {
+  if (!window.pistonDB) return;
+  try {
+    const messages = await window.pistonDB.getTranscripts();
+    if (messages && messages.length > 0) {
+      const empty = DOM.transcript.querySelector('.empty-transcript');
+      if (empty) empty.remove();
+      
+      messages.forEach(m => {
+        const div = document.createElement('div');
+        div.className = `msg ${m.role}`;
+        div.innerHTML = `
+          <div class="msg-avatar">${m.role === 'user' ? 'Y' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v4M8 8v12M12 4v20M16 8v12M20 12v4"/></svg>'}</div>
+          <div class="msg-content">
+            <div class="msg-header">
+              <span class="msg-author">${m.role === 'user' ? 'You' : 'Piston'}</span>
+              <span class="msg-time">${m.time}</span>
             </div>
-          `;
-          DOM.transcript.appendChild(div);
-        });
-        DOM.transcript.scrollTop = DOM.transcript.scrollHeight;
-      }
-    } catch (e) {
-      console.error('Failed to parse transcript', e);
+            <div class="msg-text">${m.text}</div>
+          </div>
+        `;
+        DOM.transcript.appendChild(div);
+      });
+      DOM.transcript.scrollTop = DOM.transcript.scrollHeight;
     }
+  } catch (e) {
+    console.error('Failed to parse transcript from IndexedDB', e);
   }
 }
 
@@ -690,7 +733,7 @@ async function startSession() {
             resetInactivityTimer();
           }
 
-          // Half-duplex acoustic gating: only send mic when Piston is listening!
+          // Half-duplex acoustic gating: only stream mic when Piston is in 'listening' state!
           if (!isMuted && appState === 'listening' && ws && ws.readyState === WebSocket.OPEN) {
             ws.send(e.data);
           }
@@ -859,8 +902,10 @@ const transcriptHeader = document.querySelector('.right-panel .panel-header h2')
 if (transcriptHeader) {
   transcriptHeader.style.cursor = 'pointer';
   transcriptHeader.title = 'Double click to clear chat history';
-  transcriptHeader.addEventListener('dblclick', () => {
-    localStorage.removeItem('piston_transcript');
+  transcriptHeader.addEventListener('dblclick', async () => {
+    if (window.pistonDB) {
+      await window.pistonDB.clearTranscripts();
+    }
     DOM.transcript.innerHTML = '<div class="empty-transcript">Start speaking to see transcript</div>';
   });
 }
