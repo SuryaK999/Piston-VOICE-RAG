@@ -98,7 +98,7 @@ async def upload_document(file: UploadFile = File(...)):
     try:
         import asyncio
         await asyncio.to_thread(app.state.rag.store.add_chunks, chunks, app.state.rag.embed_fn)
-        log.info("uploaded %s → %d chunks", file.filename, len(chunks))
+        log.info("uploaded %s -> %d chunks", file.filename, len(chunks))
     except Exception as exc:
         log.exception("Failed to embed chunks for %s", file.filename)
         return JSONResponse({"error": f"Failed to embed document: {exc}"}, status_code=500)

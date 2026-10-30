@@ -365,7 +365,8 @@ function onToolEvent(ev) {
     `;
     DOM.transcript.appendChild(chip);
   } else {
-    setState('listening', 'Listening...', 'Capturing your voice'); // return to listening or speaking
+    // When tool search finishes, do NOT prematurely switch to 'listening'.
+    // The agent will transition to 'speaking' as soon as Gemini begins delivering the answer.
     const pending = document.getElementById('pending-tool');
     if (pending) {
       pending.removeAttribute('id');
@@ -389,6 +390,8 @@ function flushPlayback() {
 
 function playPcm24k(bytes) {
   if (isInterrupting) return;
+  if (!bytes || bytes.byteLength < 2) return;
+
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
@@ -397,7 +400,10 @@ function playPcm24k(bytes) {
     stopInactivityTimer();
   }
   
-  const pcm = new Int16Array(bytes);
+  const safeLength = bytes.byteLength - (bytes.byteLength % 2);
+  const pcm = new Int16Array(bytes.slice ? bytes.slice(0, safeLength) : bytes);
+  if (pcm.length === 0) return;
+
   const f32 = new Float32Array(pcm.length);
   let sumSquare = 0;
   for (let i = 0; i < pcm.length; i++) {
@@ -416,20 +422,24 @@ function playPcm24k(bytes) {
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
   src.connect(audioCtx.destination);
-  const start = Math.max(nextPlayTime, audioCtx.currentTime + 0.04);
-  src.start(start);
-  nextPlayTime = start + buf.duration;
+  
+  const now = audioCtx.currentTime;
+  if (nextPlayTime < now || nextPlayTime > now + 3.0) {
+    nextPlayTime = now + 0.04;
+  }
+  src.start(nextPlayTime);
+  nextPlayTime += buf.duration;
   liveSources.add(src);
+  
   src.onended = () => {
     liveSources.delete(src);
     if (liveSources.size === 0) {
-      // Done speaking
       setTimeout(() => {
         if (liveSources.size === 0 && appState === 'speaking' && !isInterrupting) {
           setState('listening', 'Listening...', 'Capturing your voice');
           resetInactivityTimer();
         }
-      }, 500);
+      }, 350);
     }
   };
 }
@@ -454,10 +464,6 @@ async function startSession() {
         aiAnalyzer = { rms: 0 };
         
         workletNode.port.onmessage = (e) => {
-          if (!isMuted && ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
-          }
-          
           const pcm = new Int16Array(e.data);
           let sum = 0;
           for (let i = 0; i < pcm.length; i += 10) { 
@@ -468,6 +474,14 @@ async function startSession() {
           
           if (micAnalyzer.rms > 0.03) {
             resetInactivityTimer();
+          }
+
+          // CRITICAL: Only send mic audio when Piston is in 'listening' mode!
+          // Streaming mic audio during 'speaking' or 'searching' sends speaker output
+          // right back into Gemini Live, causing Gemini's server-side VAD to falsely detect
+          // an interruption and abruptly cut off speech mid-sentence.
+          if (!isMuted && appState === 'listening' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(e.data);
           }
         };
         source.connect(workletNode);
@@ -593,7 +607,14 @@ function startAnimationLoop() {
 
 // Controls
 DOM.orb.addEventListener('click', () => {
-  if (appState === 'idle' || appState === 'error') startSession();
+  if (appState === 'idle' || appState === 'error') {
+    startSession();
+  } else if (appState === 'speaking') {
+    isInterrupting = true;
+    flushPlayback();
+    setState('listening', 'Listening...', 'Capturing your voice');
+    resetInactivityTimer();
+  }
 });
 
 DOM.btnMute.addEventListener('click', () => {

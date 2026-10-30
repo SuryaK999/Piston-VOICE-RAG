@@ -64,7 +64,7 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
         query = llm(prompt).strip().strip('"') or state["question"]
         return {
             "query": query,
-            "trace": [f"rewrite: \"{state['question']}\" → \"{query}\""],
+            "trace": [f"rewrite: \"{state['question']}\" -> \"{query}\""],
             "latency_ms": {"rewrite": round((time.perf_counter() - t0) * 1000)},
         }
 
