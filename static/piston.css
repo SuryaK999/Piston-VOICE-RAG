@@ -360,10 +360,11 @@ body {
   position: relative;
   width: clamp(280px, 48vh, 420px);
   height: clamp(280px, 48vh, 420px);
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
   cursor: pointer;
-  outline: none;
+  outline: none !important;
+  box-shadow: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,6 +373,7 @@ body {
 }
 .orb:hover { transform: scale(1.03); }
 .orb:active { transform: scale(0.97); }
+.orb:focus, .orb:focus-visible { outline: none !important; box-shadow: none !important; }
 
 #orb-ambient-bloom {
   position: absolute;
@@ -404,7 +406,7 @@ body {
     circle,
     rgba(245, 130, 49, 0.11) 0%,
     rgba(255, 173, 135, 0.04) 48%,
-    rgba(8, 8, 10, 0) 74%
+    rgba(245, 130, 49, 0) 74%
   );
   filter: blur(64px);
   transform: translate(-50%, -50%);
