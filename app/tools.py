@@ -1,7 +1,7 @@
 """Tool declarations and dispatch for the Gemini Live session.
 
 One tool:
-  search_knowledge_base — the full LangGraph RAG pipeline,
+  search_knowledge_base - the full LangGraph RAG pipeline,
   searches through user-uploaded documents.
 """
 from __future__ import annotations
@@ -23,7 +23,11 @@ TOOL_DECLARATIONS = [
                 "question": {
                     "type": "string",
                     "description": "The user's question, phrased clearly.",
-                }
+                },
+                "doc": {
+                    "type": "string",
+                    "description": "Optional specific document filename to search within.",
+                },
             },
             "required": ["question"],
         },
@@ -39,13 +43,16 @@ TOOL_DECLARATIONS = [
 ]
 
 
-async def dispatch_tool(name: str, args: dict, rag_service) -> tuple[dict, dict]:
+async def dispatch_tool(
+    name: str, args: dict, rag_service, doc_filter: str | None = None
+) -> tuple[dict, dict]:
     """Run a tool call. Returns (response_for_gemini, event_for_ui)."""
     if name == "search_knowledge_base":
         import asyncio
 
         question = args.get("question", "")
-        result = await asyncio.to_thread(rag_service.ask, question)
+        filter_to_use = args.get("doc") or doc_filter
+        result = await asyncio.to_thread(rag_service.ask, question, filter_to_use)
         response = {
             "answer": result["answer"],
             "sources": result["sources"],
@@ -53,7 +60,7 @@ async def dispatch_tool(name: str, args: dict, rag_service) -> tuple[dict, dict]
         ui_event = {
             "type": "tool",
             "name": name,
-            "detail": question,
+            "detail": f"{question} ({filter_to_use})" if filter_to_use else question,
             "trace": result["trace"],
             "latency_ms": result["latency_ms"],
             "sources": result["sources"],
@@ -66,10 +73,14 @@ async def dispatch_tool(name: str, args: dict, rag_service) -> tuple[dict, dict]
             "name": name,
             "detail": "Ending session by user request",
             "status": "done",
-            "end_session": True
+            "end_session": True,
         }
 
     return {"error": f"unknown tool: {name}"}, {
-        "type": "tool", "name": name, "detail": "unknown tool", "trace": [],
-        "latency_ms": {}, "sources": [],
+        "type": "tool",
+        "name": name,
+        "detail": "unknown tool",
+        "trace": [],
+        "latency_ms": {},
+        "sources": [],
     }
