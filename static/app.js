@@ -835,47 +835,25 @@ function stopSession(isError = false, title = 'Ready to start', subtitle = 'Tap 
 
 // Animation Loop for Waveform / Orb
 function startAnimationLoop() {
-  const waves = document.querySelectorAll('.orb-wave');
   const miniBars = document.querySelectorAll('.mini-waveform .bar');
-  const orbCore = document.querySelector('.orb-core');
   
   function render() {
+    let currentLevel = 0;
+    
     if (appState === 'listening' && micAnalyzer) {
-      const scale = 1 + (micAnalyzer.rms * 5);
-      waves.forEach((w, i) => {
-        w.style.transform = `translate(-50%, -50%) scale(${scale + (i*0.2)})`;
-        w.style.opacity = Math.max(0, 0.5 - (micAnalyzer.rms * 2));
-      });
-      miniBars.forEach(b => b.style.height = `${Math.max(4, micAnalyzer.rms * 40)}px`);
-      if (orbCore) orbCore.style.transform = `scale(${1 + micAnalyzer.rms * 0.5})`;
+      currentLevel = micAnalyzer.rms;
+      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 40)}px`);
+      micAnalyzer.rms *= 0.85;
     } else if (appState === 'speaking' && aiAnalyzer) {
-      const scale = 1 + (aiAnalyzer.rms * 3);
-      waves.forEach((w, i) => {
-        w.style.transform = `translate(-50%, -50%) scale(${scale + (i*0.3)})`;
-        w.style.opacity = Math.max(0, 0.6 - (aiAnalyzer.rms * 1.5));
-      });
-      miniBars.forEach(b => b.style.height = `${Math.max(4, aiAnalyzer.rms * 30)}px`);
-      if (orbCore) orbCore.style.transform = `scale(${1 + aiAnalyzer.rms * 0.4})`;
-      aiAnalyzer.rms *= 0.9;
+      currentLevel = aiAnalyzer.rms;
+      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 35)}px`);
+      aiAnalyzer.rms *= 0.90;
     } else {
-      waves.forEach((w) => {
-        w.style.transform = `translate(-50%, -50%) scale(1)`;
-        w.style.opacity = 0;
-      });
       miniBars.forEach(b => b.style.height = '4px');
-      if (orbCore) orbCore.style.transform = `scale(1)`;
     }
     
-    if (micAnalyzer) micAnalyzer.rms *= 0.8;
-    
     if (orbVisualizer) {
-      if (appState === 'listening' && micAnalyzer) {
-        orbVisualizer.setAudioLevel(micAnalyzer.rms);
-      } else if (appState === 'speaking' && aiAnalyzer) {
-        orbVisualizer.setAudioLevel(aiAnalyzer.rms);
-      } else {
-        orbVisualizer.setAudioLevel(0);
-      }
+      orbVisualizer.setAudioLevel(currentLevel);
     }
     
     animationFrameId = requestAnimationFrame(render);
