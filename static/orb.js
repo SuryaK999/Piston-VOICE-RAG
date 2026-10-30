@@ -122,10 +122,15 @@ const FRAGMENT_SHADER_SRC = `
 
     // OUTSIDE THE SPHERE (r > 1.0): Render smooth atmospheric halo + gossamer silk veil
     if (r > 1.0) {
+      if (r >= 1.25) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        return;
+      }
       float distOut = r - 1.0;
+      float edgeFade = smoothstep(0.25, 0.0, distOut);
 
       // Base radial optical bloom around the crisp rim
-      float halo = exp(-distOut * 10.5) * 0.46 + exp(-distOut * 3.6) * 0.14;
+      float halo = (exp(-distOut * 12.0) * 0.45 + exp(-distOut * 4.5) * 0.12) * edgeFade;
       halo *= (1.0 + u_audio * 0.35 + u_state_speaking * 0.15);
 
       // Gossamer silk veil Layer 1
@@ -143,7 +148,7 @@ const FRAGMENT_SHADER_SRC = `
         veil2 = (1.0 - normWisp2 * 0.7) * smoothstep(1.0, 0.68, normWisp2) * 0.15;
       }
 
-      float totalOuterAlpha = clamp(halo + veil1 + veil2, 0.0, 1.0);
+      float totalOuterAlpha = clamp((halo + veil1 + veil2) * edgeFade, 0.0, 1.0);
       vec3 outerColor = mix(colWarmAmber, colChampagne, clamp(exp(-distOut * 16.0) + (veil1 + veil2) * 1.4, 0.0, 1.0));
       gl_FragColor = vec4(outerColor * totalOuterAlpha, totalOuterAlpha);
       return;
