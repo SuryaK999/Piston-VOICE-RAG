@@ -507,7 +507,7 @@ class VoiceOrbVisualizer {
 
     this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
 
-    const fallbackSize = 420;
+    const fallbackSize = 460;
     this.width = Math.max(1, parentRect.width || this.canvas.clientWidth || fallbackSize);
     this.height = Math.max(1, parentRect.height || this.canvas.clientHeight || fallbackSize);
 
@@ -524,7 +524,7 @@ class VoiceOrbVisualizer {
       this.gl.viewport(0, 0, this.glCanvas.width, this.glCanvas.height);
     }
 
-    this.baseRadius = Math.min(this.width, this.height) * 0.362;
+    this.baseRadius = Math.min(this.width, this.height) * 0.388;
   }
 
   /**
