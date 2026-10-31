@@ -146,9 +146,13 @@ let currentBubble = { user: null, agent: null };
 let isMuted = false;
 let isIntentionalClose = false;
 
-// Audio Analyzers
+// Audio Analyzers (Real-time Web Audio API)
 let micAnalyzer = null;
 let aiAnalyzer = null;
+let micAnalyserNode = null;
+let micAnalyserData = null;
+let aiAnalyserNode = null;
+let aiAnalyserData = null;
 let animationFrameId = null;
 let appState = 'idle'; // idle, listening, searching, speaking, error
 let isInterrupting = false;
@@ -751,7 +755,11 @@ function playPcm24k(bytes) {
   buf.getChannelData(0).set(f32);
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
-  src.connect(audioCtx.destination);
+  if (aiAnalyserNode) {
+    src.connect(aiAnalyserNode);
+  } else {
+    src.connect(audioCtx.destination);
+  }
   
   const now = audioCtx.currentTime;
   if (nextPlayTime < now) {
@@ -792,6 +800,20 @@ async function startSession() {
         await audioCtx.audioWorklet.addModule('/static/pcm-worklet.js?v=2.0.0');
         const source = audioCtx.createMediaStreamSource(mediaStream);
         workletNode = new AudioWorkletNode(audioCtx, 'pcm-capture');
+        
+        // Apple Siri high-precision real-time Web Audio AnalyserNodes
+        micAnalyserNode = audioCtx.createAnalyser();
+        micAnalyserNode.fftSize = 256;
+        micAnalyserNode.smoothingTimeConstant = 0.20;
+        micAnalyserData = new Uint8Array(micAnalyserNode.frequencyBinCount);
+        source.connect(micAnalyserNode);
+        source.connect(workletNode);
+
+        aiAnalyserNode = audioCtx.createAnalyser();
+        aiAnalyserNode.fftSize = 256;
+        aiAnalyserNode.smoothingTimeConstant = 0.20;
+        aiAnalyserData = new Uint8Array(aiAnalyserNode.frequencyBinCount);
+        aiAnalyserNode.connect(audioCtx.destination);
         
         micAnalyzer = { rms: 0 };
         aiAnalyzer = { rms: 0 };
@@ -885,6 +907,8 @@ function stopSession(isError = false, title = 'Ready to start', subtitle = 'Tap 
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (aiAnalyserNode) { try { aiAnalyserNode.disconnect(); } catch (_) {} aiAnalyserNode = null; }
+  if (micAnalyserNode) { try { micAnalyserNode.disconnect(); } catch (_) {} micAnalyserNode = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
   flushPlayback();
   
@@ -901,14 +925,36 @@ function startAnimationLoop() {
   function render() {
     let currentLevel = 0;
     
-    if (appState === 'listening' && micAnalyzer) {
-      currentLevel = micAnalyzer.rms;
+    if (appState === 'speaking') {
+      if (aiAnalyserNode && aiAnalyserData) {
+        aiAnalyserNode.getByteTimeDomainData(aiAnalyserData);
+        let sum = 0;
+        for (let i = 0; i < aiAnalyserData.length; i++) {
+          const v = (aiAnalyserData[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rawRms = Math.sqrt(sum / aiAnalyserData.length);
+        currentLevel = Math.min(1.0, rawRms * 3.4);
+      } else if (aiAnalyzer) {
+        currentLevel = aiAnalyzer.rms;
+        aiAnalyzer.rms *= 0.90;
+      }
+      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 42)}px`);
+    } else if (appState === 'listening') {
+      if (micAnalyserNode && micAnalyserData) {
+        micAnalyserNode.getByteTimeDomainData(micAnalyserData);
+        let sum = 0;
+        for (let i = 0; i < micAnalyserData.length; i++) {
+          const v = (micAnalyserData[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rawRms = Math.sqrt(sum / micAnalyserData.length);
+        currentLevel = Math.min(1.0, rawRms * 3.0);
+      } else if (micAnalyzer) {
+        currentLevel = micAnalyzer.rms;
+        micAnalyzer.rms *= 0.85;
+      }
       miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 40)}px`);
-      micAnalyzer.rms *= 0.85;
-    } else if (appState === 'speaking' && aiAnalyzer) {
-      currentLevel = aiAnalyzer.rms;
-      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 35)}px`);
-      aiAnalyzer.rms *= 0.90;
     } else {
       miniBars.forEach(b => b.style.height = '4px');
     }

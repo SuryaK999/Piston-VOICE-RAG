@@ -12,6 +12,50 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+/**
+ * SiriSpring - 2nd-Order Damped Harmonic Oscillator (Apple iOS / Siri fluid spring dynamics)
+ * stiffness (k): 195, damping (c): 16.5, mass (m): 1.0
+ * Provides snappy vocal attack, subtle organic elastic overshoot, and smooth settling.
+ */
+class SiriSpring {
+  constructor(initialValue = 1.0, stiffness = 195, damping = 16.5, mass = 1.0) {
+    this.value = initialValue;
+    this.target = initialValue;
+    this.velocity = 0;
+    this.stiffness = stiffness;
+    this.damping = damping;
+    this.mass = mass;
+  }
+
+  setTarget(target) {
+    this.target = target;
+  }
+
+  impulse(v) {
+    this.velocity += v;
+  }
+
+  update(dt) {
+    const safeDt = Math.min(dt, 0.033);
+    const steps = 2;
+    const subDt = safeDt / steps;
+    for (let i = 0; i < steps; i++) {
+      const fSpring = -this.stiffness * (this.value - this.target);
+      const fDamping = -this.damping * this.velocity;
+      const a = (fSpring + fDamping) / this.mass;
+      this.velocity += a * subDt;
+      this.value += this.velocity * subDt;
+    }
+    return this.value;
+  }
+
+  reset(val = 1.0) {
+    this.value = val;
+    this.target = val;
+    this.velocity = 0;
+  }
+}
+
 const VERTEX_SHADER_SRC = `
   attribute vec2 a_position;
   varying vec2 v_uv;
@@ -35,6 +79,8 @@ const FRAGMENT_SHADER_SRC = `
   uniform float u_state_idle;
   uniform float u_shockwave;
   uniform vec2 u_pointer;
+  uniform vec2 u_squash;
+  uniform float u_spring_wobble;
 
   // 3D Simplex Noise (Ashima Arts)
   vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
@@ -105,9 +151,24 @@ const FRAGMENT_SHADER_SRC = `
     vec2 center = u_resolution * 0.5;
     vec2 pixelOffset = gl_FragCoord.xy - center;
     pixelOffset.y = -pixelOffset.y; // Match screen top-down coordinate orientation
-    vec2 p = pixelOffset / max(1.0, u_radius);
-    float r = length(p);
+
+    // Apple Siri fluid spring deformation:
+    // Coordinates deform with fluid drift & volume-conserving squash/stretch
+    float driftAngle = u_time * 0.16;
+    mat2 rotDrift = mat2(cos(driftAngle), -sin(driftAngle), sin(driftAngle), cos(driftAngle));
+    mat2 invDrift = mat2(cos(-driftAngle), -sin(-driftAngle), sin(-driftAngle), cos(-driftAngle));
+
+    vec2 pDeformed = rotDrift * pixelOffset;
+    pDeformed.x /= max(0.5, u_squash.x);
+    pDeformed.y /= max(0.5, u_squash.y);
+    pDeformed = invDrift * pDeformed;
+
+    vec2 p = pDeformed / max(1.0, u_radius);
     float angle = atan(p.y, p.x);
+
+    // Subtle harmonic surface ripple (Apple fluid surface tension dynamics)
+    float surfaceRipple = (sin(angle * 3.0 + u_time * 2.4) * cos(angle * 2.0 - u_time * 1.9)) * u_spring_wobble;
+    float r = length(p) - surfaceRipple;
 
     // 1. Juicy Orange Fruit Palette (Active Listening mode - vibrant citrus fruit glow)
     vec3 listenObsidian   = vec3(0.24, 0.06, 0.01);  // Deep terracotta citrus shadow
@@ -329,6 +390,12 @@ class VoiceOrbVisualizer {
     this.audioLevel = 0.0;
     this.smoothedAudio = 0.0;
 
+    // Apple Siri fluid spring physics
+    this.scaleSpring = new SiriSpring(1.0, 195, 16.5, 1.0);
+    this.squashSpring = new SiriSpring(0.0, 220, 18.0, 1.0);
+    this.wobbleSpring = new SiriSpring(0.0, 150, 14.0, 1.0);
+    this.bloomSpring = new SiriSpring(1.0, 170, 15.0, 1.0);
+
     this.thinkingWeight = 0.0;
     this.speakingWeight = 0.0;
     this.listeningWeight = 0.0;
@@ -436,6 +503,8 @@ class VoiceOrbVisualizer {
       u_state_idle: gl.getUniformLocation(this.program, 'u_state_idle'),
       u_shockwave: gl.getUniformLocation(this.program, 'u_shockwave'),
       u_pointer: gl.getUniformLocation(this.program, 'u_pointer'),
+      u_squash: gl.getUniformLocation(this.program, 'u_squash'),
+      u_spring_wobble: gl.getUniformLocation(this.program, 'u_spring_wobble'),
     };
   }
 
@@ -484,7 +553,7 @@ class VoiceOrbVisualizer {
       this.gl.viewport(0, 0, this.glCanvas.width, this.glCanvas.height);
     }
 
-    this.baseRadius = Math.min(this.width, this.height) * 0.345;
+    this.baseRadius = Math.min(this.width, this.height) * 0.395;
   }
 
   /**
@@ -531,9 +600,34 @@ class VoiceOrbVisualizer {
     this.setState(mode);
   }
 
-  setAudioLevel(rms) {
-    if (typeof rms === 'number' && !isNaN(rms)) {
-      this.audioLevel = Math.max(0, Math.min(1, rms));
+  setAudioLevel(dataOrRms) {
+    let rawLevel = 0;
+    if (typeof dataOrRms === 'number' && !isNaN(dataOrRms)) {
+      rawLevel = Math.max(0, Math.min(1.0, dataOrRms));
+    } else if (dataOrRms && dataOrRms.length) {
+      let sum = 0;
+      for (let i = 0; i < dataOrRms.length; i++) {
+        const v = dataOrRms[i];
+        sum += Math.abs(v > 1 ? (v - 128) / 128 : v);
+      }
+      rawLevel = Math.min(1.0, (sum / dataOrRms.length) * 2.8);
+    }
+
+    const prev = this.audioLevel;
+    this.audioLevel = rawLevel;
+
+    // Detect acoustic syllable attack / onset
+    const onset = rawLevel - prev;
+    if (onset > 0.032) {
+      const isSpeaking = this.state === 'speaking';
+      const isListening = this.state === 'listening';
+      const multiplier = isSpeaking ? 3.0 : (isListening ? 1.8 : 1.2);
+
+      // Inject physical velocity impulse into the spring system
+      this.scaleSpring.impulse(onset * multiplier);
+      this.squashSpring.impulse((Math.random() > 0.5 ? 1 : -1) * onset * 1.8);
+      this.wobbleSpring.impulse(onset * 0.35);
+      this.bloomSpring.impulse(onset * 2.5);
     }
   }
 
@@ -546,20 +640,13 @@ class VoiceOrbVisualizer {
   }
 
   updateAudio(dataOrRms) {
-    if (typeof dataOrRms === 'number') {
-      this.setAudioLevel(dataOrRms);
-    } else if (dataOrRms && dataOrRms.length) {
-      let sum = 0;
-      for (let i = 0; i < dataOrRms.length; i++) {
-        const v = dataOrRms[i];
-        sum += Math.abs(v > 1 ? (v - 128) / 128 : v);
-      }
-      this.setAudioLevel(Math.min(1, (sum / dataOrRms.length) * 2.5));
-    }
+    this.setAudioLevel(dataOrRms);
   }
 
   triggerInterruptRipple() {
     this.shockwave = 1.0;
+    this.scaleSpring.impulse(-0.09); // Spring compresses on touch and rebounds
+    this.bloomSpring.impulse(0.5);
     this.smoothedAudio = Math.max(this.smoothedAudio, 0.45);
   }
 
@@ -631,28 +718,54 @@ class VoiceOrbVisualizer {
 
     this.time += dt;
 
-    const audioLerp = this.audioLevel > this.smoothedAudio ? 0.14 : 0.06;
+    // 1. Advance Apple Siri fluid spring physics
+    const springScale = this.scaleSpring.update(dt);
+    const springSquash = this.squashSpring.update(dt);
+    const springWobble = this.wobbleSpring.update(dt);
+    const springBloom = this.bloomSpring.update(dt);
+
+    const isSpeaking = this.state === 'speaking';
+    const isListening = this.state === 'listening';
+    const isThinking = this.state === 'thinking';
+    const isIdle = this.state === 'idle';
+
+    const audioLerp = this.audioLevel > this.smoothedAudio ? 0.20 : 0.08;
     this.smoothedAudio = lerp(this.smoothedAudio, this.audioLevel, audioLerp);
     this.currentSpeed = lerp(this.currentSpeed, this.targetSpeed, 0.04);
-    this.fluidTime += this.currentSpeed * (1.0 + this.smoothedAudio * 0.9);
+    this.fluidTime += this.currentSpeed * (1.0 + this.smoothedAudio * 0.95);
 
-    this.thinkingWeight = lerp(this.thinkingWeight, this.state === 'thinking' ? 1.0 : 0.0, 0.04);
-    this.speakingWeight = lerp(this.speakingWeight, this.state === 'speaking' ? 1.0 : 0.0, 0.07);
-    this.listeningWeight = lerp(this.listeningWeight, this.state === 'listening' ? 1.0 : 0.0, 0.06);
-    this.idleWeight = lerp(this.idleWeight, this.state === 'idle' ? 1.0 : 0.0, 0.05);
+    this.thinkingWeight = lerp(this.thinkingWeight, isThinking ? 1.0 : 0.0, 0.04);
+    this.speakingWeight = lerp(this.speakingWeight, isSpeaking ? 1.0 : 0.0, 0.08);
+    this.listeningWeight = lerp(this.listeningWeight, isListening ? 1.0 : 0.0, 0.06);
+    this.idleWeight = lerp(this.idleWeight, isIdle ? 1.0 : 0.0, 0.05);
     this.shockwave = lerp(this.shockwave, 0.0, 0.06);
 
     this.pointer.x = lerp(this.pointer.x, this.pointer.targetX, 0.07);
     this.pointer.y = lerp(this.pointer.y, this.pointer.targetY, 0.07);
 
-    const breatheOsc = Math.sin(this.time * 1.4) * 0.014;
-    const speechBoost = this.smoothedAudio * (this.state === 'speaking' ? 0.085 : 0.045);
-    const desiredScale = this.targetScale + breatheOsc + speechBoost;
-    this.currentScale = lerp(this.currentScale, desiredScale, 0.09);
+    // Natural organic resting breath and vocal response targets
+    const breatheOsc = Math.sin(this.time * 1.4) * (isIdle ? 0.016 : 0.008);
+    let targetScale = this.targetScale + breatheOsc;
+    if (isSpeaking) {
+      targetScale += this.smoothedAudio * 0.15; // spring expands dynamically when assistant speaks
+    } else if (isListening) {
+      targetScale += this.smoothedAudio * 0.09; // spring expands dynamically when user speaks
+    }
+    this.scaleSpring.setTarget(targetScale);
+    this.squashSpring.setTarget(0.0);
+    this.wobbleSpring.setTarget(isSpeaking ? Math.min(0.016, this.smoothedAudio * 0.024) : (isListening ? this.smoothedAudio * 0.01 : 0.0));
+    this.bloomSpring.setTarget(targetScale + this.smoothedAudio * 0.20);
+
+    this.currentScale = springScale;
 
     const cx = this.width * 0.5;
     const cy = this.height * 0.5;
     const currentRadius = this.baseRadius * this.currentScale;
+
+    const squashVal = Math.max(-0.06, Math.min(0.06, springSquash));
+    const squashX = 1.0 + squashVal;
+    const squashY = 1.0 - squashVal * 0.8;
+    const wobbleVal = Math.max(0.0, Math.min(0.03, springWobble));
 
     const gl = this.gl;
     if (gl && this.program) {
@@ -669,6 +782,8 @@ class VoiceOrbVisualizer {
       gl.uniform1f(this.uniforms.u_state_idle, this.idleWeight);
       gl.uniform1f(this.uniforms.u_shockwave, this.shockwave);
       gl.uniform2f(this.uniforms.u_pointer, this.pointer.x, this.pointer.y);
+      gl.uniform2f(this.uniforms.u_squash, squashX, squashY);
+      gl.uniform1f(this.uniforms.u_spring_wobble, wobbleVal);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
@@ -686,14 +801,14 @@ class VoiceOrbVisualizer {
     ctx.restore();
 
     const isDark = document.body && document.body.classList.contains('dark-mode');
-    const bloomScale = this.currentScale + this.smoothedAudio * 0.16;
+    const bloomScale = springBloom;
     const ambientBloomEl = document.getElementById('orb-ambient-bloom');
     const deepBloomEl = document.getElementById('orb-deep-bloom');
     if (ambientBloomEl && deepBloomEl) {
       ambientBloomEl.style.transform = `translate(-50%, -50%) scale(${bloomScale.toFixed(3)})`;
-      deepBloomEl.style.transform = `translate(-50%, -50%) scale(${(1.0 + this.smoothedAudio * 0.12).toFixed(3)})`;
+      deepBloomEl.style.transform = `translate(-50%, -50%) scale(${(bloomScale * 0.96).toFixed(3)})`;
 
-      const baseAmbientOpacity = (isDark ? 0.75 : 0.45) + this.smoothedAudio * 0.35;
+      const baseAmbientOpacity = (isDark ? 0.75 : 0.45) + this.smoothedAudio * 0.38;
       ambientBloomEl.style.opacity = baseAmbientOpacity.toFixed(2);
       deepBloomEl.style.opacity = (isDark ? 0.90 : 0.55).toFixed(2);
 
