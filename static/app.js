@@ -29,8 +29,47 @@ const DOM = {
   docSearch: document.getElementById('doc-search'),
   btnThemeToggle: document.getElementById('btn-theme-toggle'),
   btnClearDocs: document.getElementById('btn-clear-docs'),
-  toastContainer: document.getElementById('toast-container')
+  toastContainer: document.getElementById('toast-container'),
+  btnBackendSettings: document.getElementById('btn-backend-settings'),
+  backendModal: document.getElementById('backend-modal'),
+  btnCloseBackendModal: document.getElementById('btn-close-backend-modal'),
+  inputBackendUrl: document.getElementById('input-backend-url'),
+  backendStatusMsg: document.getElementById('backend-status-msg'),
+  btnTestBackend: document.getElementById('btn-test-backend'),
+  btnSaveBackend: document.getElementById('btn-save-backend')
 };
+
+// --- Backend URL Resolution ---
+function getBackendUrl() {
+  const saved = localStorage.getItem('piston_backend_url');
+  if (saved && saved.trim()) return saved.trim().replace(/\/+$/, '');
+  if (window.PISTON_BACKEND_URL && window.PISTON_BACKEND_URL.trim()) {
+    return window.PISTON_BACKEND_URL.trim().replace(/\/+$/, '');
+  }
+  return window.location.origin;
+}
+
+function getApiUrl(endpoint) {
+  const base = getBackendUrl();
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${base}${path}`;
+}
+
+function getWsUrl() {
+  const backend = getBackendUrl();
+  let wsBase;
+  if (backend.startsWith('http://')) {
+    wsBase = backend.replace('http://', 'ws://');
+  } else if (backend.startsWith('https://')) {
+    wsBase = backend.replace('https://', 'wss://');
+  } else if (backend.startsWith('ws://') || backend.startsWith('wss://')) {
+    wsBase = backend;
+  } else {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsBase = `${proto}//${backend}`;
+  }
+  return `${wsBase.replace(/\/+$/, '')}/ws`;
+}
 
 let orbVisualizer = null;
 const VisualizerClass = window.VoiceOrbVisualizer || window.OrbVisualizer;
@@ -337,7 +376,7 @@ async function loadDocuments() {
 
   // 2. Authoritative sync with backend
   try {
-    const res = await fetch('/documents');
+    const res = await fetch(getApiUrl('/documents'));
     if (res.ok) {
       const data = await res.json();
       uploadedDocs = data;
@@ -391,7 +430,7 @@ async function deleteDoc(e, docName) {
     return;
   }
   try {
-    const res = await fetch(`/documents/${encodeURIComponent(docName)}`, {
+    const res = await fetch(getApiUrl(`/documents/${encodeURIComponent(docName)}`), {
       method: 'DELETE'
     });
     const data = await res.json();
@@ -425,7 +464,7 @@ async function clearAllDocs() {
     return;
   }
   try {
-    const res = await fetch('/documents', { method: 'DELETE' });
+    const res = await fetch(getApiUrl('/documents'), { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to clear documents');
 
@@ -470,7 +509,7 @@ DOM.uploadInput.addEventListener('change', async (e) => {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const res = await fetch(getApiUrl('/upload'), { method: 'POST', body: formData });
       let data;
       try {
         data = await res.json();
@@ -721,7 +760,7 @@ function playPcm24k(bytes) {
 async function startSession() {
   if (ws) return;
   isIntentionalClose = false;
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  ws = new WebSocket(getWsUrl());
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = async () => {
@@ -1033,7 +1072,95 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// --- Backend Configuration Modal Logic ---
+function initBackendModal() {
+  if (!DOM.btnBackendSettings || !DOM.backendModal) return;
+
+  const openModal = () => {
+    DOM.backendModal.style.display = 'flex';
+    if (DOM.inputBackendUrl) {
+      const saved = localStorage.getItem('piston_backend_url') || window.PISTON_BACKEND_URL || '';
+      DOM.inputBackendUrl.value = saved;
+      DOM.inputBackendUrl.focus();
+    }
+    if (DOM.backendStatusMsg) {
+      DOM.backendStatusMsg.style.display = 'none';
+      DOM.backendStatusMsg.className = 'backend-status-msg';
+    }
+  };
+
+  const closeModal = () => {
+    DOM.backendModal.style.display = 'none';
+  };
+
+  DOM.btnBackendSettings.addEventListener('click', openModal);
+  if (DOM.btnCloseBackendModal) DOM.btnCloseBackendModal.addEventListener('click', closeModal);
+
+  DOM.backendModal.addEventListener('click', (e) => {
+    if (e.target === DOM.backendModal) closeModal();
+  });
+
+  if (DOM.btnTestBackend) {
+    DOM.btnTestBackend.addEventListener('click', async () => {
+      const url = (DOM.inputBackendUrl.value || '').trim().replace(/\/+$/, '');
+      if (!url) {
+        DOM.backendStatusMsg.className = 'backend-status-msg error';
+        DOM.backendStatusMsg.textContent = 'Please enter a URL to test.';
+        DOM.backendStatusMsg.style.display = 'block';
+        return;
+      }
+      DOM.backendStatusMsg.className = 'backend-status-msg loading';
+      DOM.backendStatusMsg.textContent = 'Testing connection to ' + url + '/health ...';
+      DOM.backendStatusMsg.style.display = 'block';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(`${url}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          DOM.backendStatusMsg.className = 'backend-status-msg success';
+          DOM.backendStatusMsg.textContent = `Connected successfully! (Model: ${data.live_model || 'ready'})`;
+        } else {
+          DOM.backendStatusMsg.className = 'backend-status-msg error';
+          DOM.backendStatusMsg.textContent = `Backend responded with HTTP status ${res.status}.`;
+        }
+      } catch (err) {
+        DOM.backendStatusMsg.className = 'backend-status-msg error';
+        DOM.backendStatusMsg.textContent = `Could not connect: ${err.message}. If using Render free tier, server may be waking up (~45s).`;
+      }
+    });
+  }
+
+  if (DOM.btnSaveBackend) {
+    DOM.btnSaveBackend.addEventListener('click', async () => {
+      const url = (DOM.inputBackendUrl.value || '').trim().replace(/\/+$/, '');
+      if (url) {
+        localStorage.setItem('piston_backend_url', url);
+        showToast('Backend URL saved: ' + url, 'success');
+      } else {
+        localStorage.removeItem('piston_backend_url');
+        showToast('Backend URL reset to default host', 'info');
+      }
+      closeModal();
+      await loadDocuments();
+    });
+  }
+
+  // Notify user if deployed on external host (e.g. Vercel) without backend configured
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const hasConfiguredBackend = Boolean(localStorage.getItem('piston_backend_url') || window.PISTON_BACKEND_URL);
+  if (!isLocal && !hasConfiguredBackend) {
+    setTimeout(() => {
+      showToast('Tip: Click the server icon in the top bar to connect your backend URL.', 'info');
+    }, 1500);
+  }
+}
+
 // App Startup
 loadTranscript();
 loadDocuments();
 initSidebars();
+initBackendModal();
