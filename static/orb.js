@@ -357,9 +357,9 @@ class VoiceOrbVisualizer {
     this.fluidTime = 0;
     this.currentScale = 1.0;
     this.targetScale = 0.99;
-    this.scaleSpring = new SmoothSpring(1.0, 110, 14);
-    this.physYSpring = new SmoothSpring(0.0, 85, 13);
-    this.physXSpring = new SmoothSpring(0.0, 70, 13);
+    this.scaleSpring = new SmoothSpring(1.0, 75, 14);
+    this.physYSpring = new SmoothSpring(0.0, 36, 11);
+    this.physXSpring = new SmoothSpring(0.0, 30, 10);
     this.physX = 0;
     this.physY = 0;
     this.currentSpeed = 0.0035;
@@ -556,8 +556,8 @@ class VoiceOrbVisualizer {
         this.targetScale = 1.01;
         break;
       case 'speaking':
-        this.targetSpeed = 0.010;
-        this.targetScale = 1.04;
+        this.targetSpeed = 0.009;
+        this.targetScale = 1.03;
         break;
       default:
         this.targetSpeed = 0.0045;
@@ -573,13 +573,7 @@ class VoiceOrbVisualizer {
 
   setAudioLevel(rms) {
     if (typeof rms === 'number' && !isNaN(rms)) {
-      const prev = this.audioLevel;
       this.audioLevel = Math.max(0, Math.min(1, rms));
-      const onset = this.audioLevel - prev;
-      if (onset > 0.035 && this.state === 'speaking') {
-        this.physYSpring.impulse(-onset * 18.0);
-        this.physXSpring.impulse((Math.sin(this.time * 3.0) > 0 ? 1 : -1) * onset * 8.0);
-      }
     }
   }
 
@@ -677,10 +671,10 @@ class VoiceOrbVisualizer {
 
     this.time += dt;
 
-    const audioLerp = this.audioLevel > this.smoothedAudio ? 0.14 : 0.06;
+    const audioLerp = this.audioLevel > this.smoothedAudio ? 0.12 : 0.05;
     this.smoothedAudio = lerp(this.smoothedAudio, this.audioLevel, audioLerp);
     this.currentSpeed = lerp(this.currentSpeed, this.targetSpeed, 0.04);
-    this.fluidTime += this.currentSpeed * (1.0 + this.smoothedAudio * 0.9);
+    this.fluidTime += this.currentSpeed * (1.0 + this.smoothedAudio * 0.85);
 
     this.thinkingWeight = lerp(this.thinkingWeight, this.state === 'thinking' ? 1.0 : 0.0, 0.04);
     this.speakingWeight = lerp(this.speakingWeight, this.state === 'speaking' ? 1.0 : 0.0, 0.07);
@@ -691,27 +685,38 @@ class VoiceOrbVisualizer {
     this.pointer.x = lerp(this.pointer.x, this.pointer.targetX, 0.07);
     this.pointer.y = lerp(this.pointer.y, this.pointer.targetY, 0.07);
 
-    const breatheOsc = Math.sin(this.time * 1.4) * 0.014;
-    const speechBoost = this.smoothedAudio * (this.state === 'speaking' ? 0.065 : 0.035);
-    const desiredScale = this.targetScale + breatheOsc + speechBoost;
+    // Living breathing scale: gentle slow breath (~8.5 breaths/min) + subtle vocal breath
+    const t = this.time;
+    const breatheOsc = Math.sin(t * 0.88) * 0.010;
+    const isSpeaking = this.state === 'speaking';
+    const isListening = this.state === 'listening';
+    const speechExpansion = this.smoothedAudio * (isSpeaking ? 0.045 : 0.020);
+    const desiredScale = this.targetScale + breatheOsc + speechExpansion;
     this.scaleSpring.setTarget(desiredScale);
     this.currentScale = this.scaleSpring.update(dt);
 
-    // Organic physical floating motion
-    const isSpeaking = this.state === 'speaking';
-    const isListening = this.state === 'listening';
+    // Natural multi-frequency harmonic float (irrational frequency ratios prevent periodic metronome loops)
+    const floatY = Math.sin(t * 0.68) * 2.4 + Math.sin(t * 1.33 + 1.2) * 1.2;
+    const floatX = Math.cos(t * 0.52 + 0.5) * 1.8 + Math.cos(t * 1.05 + 2.1) * 0.9;
+
     let targetPhysY = 0;
     let targetPhysX = 0;
 
     if (isSpeaking) {
-      targetPhysY = Math.sin(this.time * 2.5) * (2.8 + this.smoothedAudio * 3.2) - this.smoothedAudio * 2.6;
-      targetPhysX = Math.cos(this.time * 1.7) * (1.6 + this.smoothedAudio * 1.8);
+      // Natural speech cadence & buoyant lift: voice volume gently lifts the sphere upward
+      const vocalLift = -this.smoothedAudio * 3.4;
+      const speechCadenceY = Math.sin(t * 1.7) * (1.4 * this.smoothedAudio);
+      const speechCadenceX = Math.cos(t * 1.2 + 0.4) * (1.1 * this.smoothedAudio);
+      targetPhysY = (floatY * 0.8) + vocalLift + speechCadenceY;
+      targetPhysX = (floatX * 0.8) + speechCadenceX;
     } else if (isListening) {
-      targetPhysY = Math.sin(this.time * 1.8) * (2.0 + this.smoothedAudio * 1.4);
-      targetPhysX = Math.cos(this.time * 1.1) * 1.2;
+      // Attentive slight tilt toward user, subtle float
+      targetPhysY = floatY * 0.85 - (this.smoothedAudio * 1.2);
+      targetPhysX = floatX * 0.85;
     } else {
-      targetPhysY = Math.sin(this.time * 1.2) * 2.4;
-      targetPhysX = Math.cos(this.time * 0.9) * 1.2;
+      // Peaceful idle breathing float
+      targetPhysY = floatY;
+      targetPhysX = floatX;
     }
 
     this.physYSpring.setTarget(targetPhysY);
@@ -756,16 +761,16 @@ class VoiceOrbVisualizer {
     ctx.restore();
 
     const isDark = document.body && document.body.classList.contains('dark-mode');
-    const bloomScale = this.currentScale + this.smoothedAudio * 0.16;
+    const bloomScale = this.currentScale + this.smoothedAudio * 0.11;
     const ambientBloomEl = document.getElementById('orb-ambient-bloom');
     const deepBloomEl = document.getElementById('orb-deep-bloom');
     if (ambientBloomEl && deepBloomEl) {
       ambientBloomEl.style.transform = `translate(calc(-50% + ${this.physX.toFixed(1)}px), calc(-50% + ${this.physY.toFixed(1)}px)) scale(${bloomScale.toFixed(3)})`;
-      deepBloomEl.style.transform = `translate(calc(-50% + ${(this.physX * 0.6).toFixed(1)}px), calc(-50% + ${(this.physY * 0.6).toFixed(1)}px)) scale(${(1.0 + this.smoothedAudio * 0.12).toFixed(3)})`;
+      deepBloomEl.style.transform = `translate(calc(-50% + ${(this.physX * 0.55).toFixed(1)}px), calc(-50% + ${(this.physY * 0.55).toFixed(1)}px)) scale(${(1.0 + this.smoothedAudio * 0.08).toFixed(3)})`;
 
-      const baseAmbientOpacity = (isDark ? 0.75 : 0.45) + this.smoothedAudio * 0.35;
+      const baseAmbientOpacity = (isDark ? 0.72 : 0.44) + this.smoothedAudio * 0.28;
       ambientBloomEl.style.opacity = baseAmbientOpacity.toFixed(2);
-      deepBloomEl.style.opacity = (isDark ? 0.90 : 0.55).toFixed(2);
+      deepBloomEl.style.opacity = (isDark ? 0.88 : 0.52).toFixed(2);
 
       // Adaptive color gradient: Cosmic Purple (Searching) vs Fruit Orange (Listening) vs Solar Amber (Idle/Speaking)
       if (this.thinkingWeight > 0.05) {
