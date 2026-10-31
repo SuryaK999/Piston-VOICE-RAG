@@ -21,13 +21,69 @@
 [![License](https://img.shields.io/badge/License-MIT-brightgreen?style=for-the-badge)](LICENSE)
 
 <br/>
+<br/>
+
+<!-- Hero Interface Screenshot -->
+<a href="#-visual-showcase--live-states">
+  <img src="assets/screenshots/piston-ui-dark-theme.png" alt="Piston Voice RAG Agent - Dark Theme Dashboard" width="100%" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" />
+</a>
+
+<br/>
 
 ---
 
 </div>
 
+## 🎬 Visual Showcase & Live States
+
+Experience Piston's responsive interface and real-time state-reactive audio visualization:
+
+### 🔮 Interactive Orb States in Action
+The volumetric WebGL frosted-glass sphere dynamically transitions in real time across conversational phases:
+
+<table width="100%">
+  <tr>
+    <td width="33.33%" align="center" valign="top">
+      <h4>🟢 1. Idle / Ambient</h4>
+      <a href="assets/screenshots/piston-orb-idle-state.gif"><img src="assets/screenshots/piston-orb-idle-state.gif" alt="Piston Orb - Idle State" width="100%" /></a><br/>
+      <p align="left"><sub><b>State:</b> Ambient Standby<br/><b>Visual:</b> Gentle harmonic simplex wave breathing cycle with micro-dust halo, ready for voice input.</sub></p>
+    </td>
+    <td width="33.33%" align="center" valign="top">
+      <h4>⚡ 2. Searching / RAG Pipeline</h4>
+      <a href="assets/screenshots/piston-rag-searching-state.gif"><img src="assets/screenshots/piston-rag-searching-state.gif" alt="Piston Orb - Searching State" width="100%" /></a><br/>
+      <p align="left"><sub><b>State:</b> 4-Node LangGraph Execution<br/><b>Visual:</b> Accelerated optical core agitation while rewriting queries, retrieving FAISS chunks, and grading relevance.</sub></p>
+    </td>
+    <td width="33.33%" align="center" valign="top">
+      <h4>🟣 3. Speaking / Synthesis</h4>
+      <a href="assets/screenshots/piston-voice-speaking-state.gif"><img src="assets/screenshots/piston-voice-speaking-state.gif" alt="Piston Orb - Speaking State" width="100%" /></a><br/>
+      <p align="left"><sub><b>State:</b> Gemini Speech Synthesis<br/><b>Visual:</b> High-amplitude sound-reactive fluid ribbons and optical Fresnel rim synced in real-time to streaming audio.</sub></p>
+    </td>
+  </tr>
+</table>
+
+### 🌓 Dual-Theme Experience
+Piston features instant theme switching with persistent client-side IndexedDB preferences:
+
+<table width="100%">
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <h4>🌙 Midnight Dark Theme (Default)</h4>
+      <a href="assets/screenshots/piston-ui-dark-theme.png"><img src="assets/screenshots/piston-ui-dark-theme.png" alt="Piston UI - Dark Theme" width="100%" /></a><br/>
+      <p align="left"><sub>Refined neo-grotesque dark aesthetic with frosted-glass acrylic docks, dual collapsible sidebars, and radiant amber accents.</sub></p>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <h4>☀️ Daylight Light Theme</h4>
+      <a href="assets/screenshots/piston-ui-light-theme.png"><img src="assets/screenshots/piston-ui-light-theme.png" alt="Piston UI - Light Theme" width="100%" /></a><br/>
+      <p align="left"><sub>High-contrast clean porcelain palette optimized for daylight environments and enhanced document legibility.</sub></p>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📋 Table of Contents
 
+- [🎬 Visual Showcase & Live States](#-visual-showcase--live-states)
 - [✨ What is Piston?](#-what-is-piston)
 - [🎯 Key Features](#-key-features)
 - [🏗️ Architecture](#️-architecture)
@@ -264,12 +320,30 @@ Defined in `static/orb.js`:
   * **Interactive Voice States Guide**: Accessible bottom-left popover featuring 4 mini 3D volumetric glass status orbs with real-time state cues.
   * **Floating Controls Capsule Dock**: Ultra-compact, centered floating frosted acrylic pill housing ergonomic Mute, Interrupt, and End Session controls with instant hover tooltips.
 
+<div align="center">
+  <br/>
+  <a href="assets/screenshots/piston-orb-idle-state.gif"><img src="assets/screenshots/piston-orb-idle-state.gif" alt="Idle State" width="32%" style="border-radius: 6px;" /></a>
+  <a href="assets/screenshots/piston-rag-searching-state.gif"><img src="assets/screenshots/piston-rag-searching-state.gif" alt="Searching State" width="32%" style="border-radius: 6px;" /></a>
+  <a href="assets/screenshots/piston-voice-speaking-state.gif"><img src="assets/screenshots/piston-voice-speaking-state.gif" alt="Speaking State" width="32%" style="border-radius: 6px;" /></a>
+  <br/>
+  <sub><i>Figure: Live WebGL raymarched states — Ambient Idle (left), 4-Node LangGraph Search (center), and Gemini Speech Synthesis (right).</i></sub>
+  <br/>
+</div>
+
 ---
 
 ## 📁 Project Structure
 
 ```
 voice-rag-agent/
+│
+├── assets/                         # Brand identity & visual documentation
+│   └── screenshots/                # UI captures & real-time interactive state GIFs
+│       ├── piston-ui-dark-theme.png
+│       ├── piston-ui-light-theme.png
+│       ├── piston-orb-idle-state.gif
+│       ├── piston-rag-searching-state.gif
+│       └── piston-voice-speaking-state.gif
 │
 ├── app/                            # Python backend package
 │   ├── __init__.py
@@ -476,6 +550,17 @@ Piston features a refined, dark-first interface crafted with semantic HTML5 and 
 * **Unified Dock**: Frosted glass floating context capsule showing active document scope with an instant dropdown picker.
 * **Action Dock**: Streamlined floating glass capsule dock with ergonomic Mute, Interrupt, and End Session controls and interactive tooltips.
 * **Dual Collapsible Panels**: Keep the focus on the voice conversation while preserving instant access to document libraries and transcripts.
+
+<div align="center">
+  <br/>
+  <a href="#-visual-showcase--live-states">
+    <img src="assets/screenshots/piston-ui-dark-theme.png" alt="Piston UI - Dark Theme Overview" width="49%" style="border-radius: 6px;" />
+    <img src="assets/screenshots/piston-ui-light-theme.png" alt="Piston UI - Light Theme Overview" width="49%" style="border-radius: 6px;" />
+  </a>
+  <br/>
+  <sub><i>Figure: Side-by-side comparison of Piston's Midnight Dark Theme and Daylight Light Theme interfaces.</i></sub>
+  <br/>
+</div>
 
 ---
 
