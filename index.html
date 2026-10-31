@@ -38,9 +38,6 @@
           <span class="desktop-only">Upload</span>
         </label>
         <input type="file" id="doc-upload" accept=".pdf,.txt,.md" style="display: none;" multiple>
-        <button id="btn-backend-settings" class="btn-settings" aria-label="Backend Server Settings" title="Configure Backend URL">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-        </button>
         <button id="btn-transcript" class="btn-settings mobile-only" aria-label="Transcript" style="border: none;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -283,40 +280,6 @@
   </div>
 
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
-
-  <!-- Backend Settings Modal -->
-  <div id="backend-modal" class="modal-backdrop" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title-wrap">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-            <line x1="6" y1="6" x2="6.01" y2="6"></line>
-            <line x1="6" y1="18" x2="6.01" y2="18"></line>
-          </svg>
-          <h3 class="modal-title">Backend Connection</h3>
-        </div>
-        <button id="btn-close-backend-modal" class="btn-icon-small" aria-label="Close" style="border: none; background: transparent; cursor: pointer;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-desc">
-          Enter the URL of your deployed Python/FastAPI backend (e.g. Render, Koyeb, Hugging Face, or local server).
-        </p>
-        <div class="input-group">
-          <label for="input-backend-url" class="input-label">Backend Server URL</label>
-          <input type="url" id="input-backend-url" class="text-input" placeholder="https://your-backend.onrender.com" spellcheck="false" autocomplete="off">
-        </div>
-        <div id="backend-status-msg" class="backend-status-msg" style="display: none;"></div>
-      </div>
-      <div class="modal-footer">
-        <button id="btn-test-backend" class="btn-secondary">Test Connection</button>
-        <button id="btn-save-backend" class="btn-primary">Save &amp; Connect</button>
-      </div>
-    </div>
-  </div>
 
   <script src="/static/config.js"></script>
   <script src="/static/db.js?v=2.3.0"></script>

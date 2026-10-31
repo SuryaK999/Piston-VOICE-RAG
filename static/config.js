@@ -1,5 +1,8 @@
 // Piston Voice RAG Agent - Runtime Configuration
-// Set your deployed backend URL here if you want it hardcoded on Vercel:
-// window.PISTON_BACKEND_URL = "https://your-service.onrender.com";
-// If left empty, Piston will check localStorage or fall back to current host.
-window.PISTON_BACKEND_URL = "";
+// When accessed from Vercel, seamlessly route traffic to the live Render backend.
+// When accessed from Render or locally, use same-origin.
+if (window.location.hostname.includes('vercel.app')) {
+  window.PISTON_BACKEND_URL = "https://piston-voice-rag.onrender.com";
+} else {
+  window.PISTON_BACKEND_URL = "";
+}
