@@ -118,6 +118,7 @@ async def index():
 
 
 @app.get("/health")
+@app.get("/healthz")
 async def health():
     return JSONResponse({
         "ok": True,
