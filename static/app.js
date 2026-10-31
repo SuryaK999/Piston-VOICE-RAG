@@ -934,12 +934,12 @@ function startAnimationLoop() {
           sum += v * v;
         }
         const rawRms = Math.sqrt(sum / aiAnalyserData.length);
-        currentLevel = Math.min(1.0, rawRms * 3.4);
+        currentLevel = Math.min(0.65, rawRms * 1.5);
       } else if (aiAnalyzer) {
         currentLevel = aiAnalyzer.rms;
         aiAnalyzer.rms *= 0.90;
       }
-      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 42)}px`);
+      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 35)}px`);
     } else if (appState === 'listening') {
       if (micAnalyserNode && micAnalyserData) {
         micAnalyserNode.getByteTimeDomainData(micAnalyserData);
@@ -949,12 +949,12 @@ function startAnimationLoop() {
           sum += v * v;
         }
         const rawRms = Math.sqrt(sum / micAnalyserData.length);
-        currentLevel = Math.min(1.0, rawRms * 3.0);
+        currentLevel = Math.min(0.55, rawRms * 1.4);
       } else if (micAnalyzer) {
         currentLevel = micAnalyzer.rms;
         micAnalyzer.rms *= 0.85;
       }
-      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 40)}px`);
+      miniBars.forEach(b => b.style.height = `${Math.max(4, currentLevel * 35)}px`);
     } else {
       miniBars.forEach(b => b.style.height = '4px');
     }
