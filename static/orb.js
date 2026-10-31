@@ -29,6 +29,10 @@ class SmoothSpring {
     this.target = t;
   }
 
+  impulse(v) {
+    this.velocity += v;
+  }
+
   update(dt) {
     const safeDt = Math.min(dt, 0.033);
     const fSpring = -this.stiffness * (this.value - this.target);
@@ -64,6 +68,7 @@ const FRAGMENT_SHADER_SRC = `
   uniform float u_state_idle;
   uniform float u_shockwave;
   uniform vec2 u_pointer;
+  uniform vec2 u_center_offset;
 
   // 3D Simplex Noise (Ashima Arts)
   vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
@@ -131,7 +136,7 @@ const FRAGMENT_SHADER_SRC = `
 
   void main() {
     // Pure isotropic center-relative physical pixel coordinates: r = 1.0 is exactly the sphere radius
-    vec2 center = u_resolution * 0.5;
+    vec2 center = u_resolution * 0.5 + u_center_offset;
     vec2 pixelOffset = gl_FragCoord.xy - center;
     pixelOffset.y = -pixelOffset.y; // Match screen top-down coordinate orientation
     vec2 p = pixelOffset / max(1.0, u_radius);
@@ -352,7 +357,11 @@ class VoiceOrbVisualizer {
     this.fluidTime = 0;
     this.currentScale = 1.0;
     this.targetScale = 0.99;
-    this.scaleSpring = new SmoothSpring(1.0, 120, 15);
+    this.scaleSpring = new SmoothSpring(1.0, 110, 14);
+    this.physYSpring = new SmoothSpring(0.0, 85, 13);
+    this.physXSpring = new SmoothSpring(0.0, 70, 13);
+    this.physX = 0;
+    this.physY = 0;
     this.currentSpeed = 0.0035;
     this.targetSpeed = 0.0035;
 
@@ -466,6 +475,7 @@ class VoiceOrbVisualizer {
       u_state_idle: gl.getUniformLocation(this.program, 'u_state_idle'),
       u_shockwave: gl.getUniformLocation(this.program, 'u_shockwave'),
       u_pointer: gl.getUniformLocation(this.program, 'u_pointer'),
+      u_center_offset: gl.getUniformLocation(this.program, 'u_center_offset'),
     };
   }
 
@@ -514,7 +524,7 @@ class VoiceOrbVisualizer {
       this.gl.viewport(0, 0, this.glCanvas.width, this.glCanvas.height);
     }
 
-    this.baseRadius = Math.min(this.width, this.height) * 0.345;
+    this.baseRadius = Math.min(this.width, this.height) * 0.362;
   }
 
   /**
@@ -563,7 +573,13 @@ class VoiceOrbVisualizer {
 
   setAudioLevel(rms) {
     if (typeof rms === 'number' && !isNaN(rms)) {
+      const prev = this.audioLevel;
       this.audioLevel = Math.max(0, Math.min(1, rms));
+      const onset = this.audioLevel - prev;
+      if (onset > 0.035 && this.state === 'speaking') {
+        this.physYSpring.impulse(-onset * 18.0);
+        this.physXSpring.impulse((Math.sin(this.time * 3.0) > 0 ? 1 : -1) * onset * 8.0);
+      }
     }
   }
 
@@ -681,8 +697,30 @@ class VoiceOrbVisualizer {
     this.scaleSpring.setTarget(desiredScale);
     this.currentScale = this.scaleSpring.update(dt);
 
-    const cx = this.width * 0.5;
-    const cy = this.height * 0.5;
+    // Organic physical floating motion
+    const isSpeaking = this.state === 'speaking';
+    const isListening = this.state === 'listening';
+    let targetPhysY = 0;
+    let targetPhysX = 0;
+
+    if (isSpeaking) {
+      targetPhysY = Math.sin(this.time * 2.5) * (2.8 + this.smoothedAudio * 3.2) - this.smoothedAudio * 2.6;
+      targetPhysX = Math.cos(this.time * 1.7) * (1.6 + this.smoothedAudio * 1.8);
+    } else if (isListening) {
+      targetPhysY = Math.sin(this.time * 1.8) * (2.0 + this.smoothedAudio * 1.4);
+      targetPhysX = Math.cos(this.time * 1.1) * 1.2;
+    } else {
+      targetPhysY = Math.sin(this.time * 1.2) * 2.4;
+      targetPhysX = Math.cos(this.time * 0.9) * 1.2;
+    }
+
+    this.physYSpring.setTarget(targetPhysY);
+    this.physXSpring.setTarget(targetPhysX);
+    this.physY = this.physYSpring.update(dt);
+    this.physX = this.physXSpring.update(dt);
+
+    const cx = this.width * 0.5 + this.physX;
+    const cy = this.height * 0.5 + this.physY;
     const currentRadius = this.baseRadius * this.currentScale;
 
     const gl = this.gl;
@@ -700,6 +738,7 @@ class VoiceOrbVisualizer {
       gl.uniform1f(this.uniforms.u_state_idle, this.idleWeight);
       gl.uniform1f(this.uniforms.u_shockwave, this.shockwave);
       gl.uniform2f(this.uniforms.u_pointer, this.pointer.x, this.pointer.y);
+      gl.uniform2f(this.uniforms.u_center_offset, this.physX * this.dpr, -this.physY * this.dpr);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
@@ -721,8 +760,8 @@ class VoiceOrbVisualizer {
     const ambientBloomEl = document.getElementById('orb-ambient-bloom');
     const deepBloomEl = document.getElementById('orb-deep-bloom');
     if (ambientBloomEl && deepBloomEl) {
-      ambientBloomEl.style.transform = `translate(-50%, -50%) scale(${bloomScale.toFixed(3)})`;
-      deepBloomEl.style.transform = `translate(-50%, -50%) scale(${(1.0 + this.smoothedAudio * 0.12).toFixed(3)})`;
+      ambientBloomEl.style.transform = `translate(calc(-50% + ${this.physX.toFixed(1)}px), calc(-50% + ${this.physY.toFixed(1)}px)) scale(${bloomScale.toFixed(3)})`;
+      deepBloomEl.style.transform = `translate(calc(-50% + ${(this.physX * 0.6).toFixed(1)}px), calc(-50% + ${(this.physY * 0.6).toFixed(1)}px)) scale(${(1.0 + this.smoothedAudio * 0.12).toFixed(3)})`;
 
       const baseAmbientOpacity = (isDark ? 0.75 : 0.45) + this.smoothedAudio * 0.35;
       ambientBloomEl.style.opacity = baseAmbientOpacity.toFixed(2);
