@@ -1,12 +1,13 @@
 from __future__ import annotations
 import operator
+import re
 import time
 from typing import Annotated, Callable, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from .kb import Chunk
-from .store import VectorStore
+from .store import VectorStore, _clean_doc_string
 
 def _merge_dicts(a: dict, b: dict) -> dict:
     c = a.copy()
@@ -56,23 +57,88 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
 
     def rewrite(state: RAGState) -> RAGState:
         t0 = time.perf_counter()
+        question = state.get("question", "").strip()
+        q_lower = question.lower()
+
+        # Meta-query check: do not mangle questions asking for file inventory
+        meta_phrases = [
+            "list all", "what documents", "what files", "which documents",
+            "which files", "do you see my files", "can you see the documents",
+            "show all files", "uploaded files", "uploaded documents"
+        ]
+        if any(p in q_lower for p in meta_phrases) and not any(k in q_lower for k in ["inside", "within", "content", "explain", "detail"]):
+            return {
+                "query": question,
+                "trace": [f"rewrite: meta-query detected: \"{question}\""],
+                "latency_ms": {"rewrite": 0},
+            }
+
         prompt = (
             "Rewrite this spoken question into a short, keyword-rich search query "
             "for a document knowledge base. Output ONLY the query, no quotes.\n\n"
-            f"Spoken question: {state['question']}"
+            f"Spoken question: {question}"
         )
-        query = llm(prompt).strip().strip('"') or state["question"]
+        query = llm(prompt).strip().strip('"') or question
         return {
             "query": query,
-            "trace": [f"rewrite: \"{state['question']}\" -> \"{query}\""],
+            "trace": [f"rewrite: \"{question}\" -> \"{query}\""],
             "latency_ms": {"rewrite": round((time.perf_counter() - t0) * 1000)},
         }
 
     def retrieve(state: RAGState) -> RAGState:
         t0 = time.perf_counter()
         doc_filter = state.get("doc_filter")
-        results = store.search(state["query"], embed_fn, k=TOP_K, doc_filter=doc_filter)
-        filter_str = f" [filter: {doc_filter}]" if doc_filter else ""
+        question = state.get("question", "")
+        q_lower = question.lower()
+
+        # 1. Handle meta-queries (listing files)
+        meta_phrases = [
+            "list all", "what documents", "what files", "which documents",
+            "which files", "do you see my files", "can you see the documents",
+            "show all files", "uploaded files", "uploaded documents"
+        ]
+        if any(p in q_lower for p in meta_phrases) and not any(k in q_lower for k in ["inside", "within", "content", "explain", "detail"]):
+            inv = store.get_document_inventory()
+            chunks = []
+            for d in inv:
+                chunks.append(Chunk(
+                    doc=d["name"],
+                    section="Document Metadata",
+                    text=f"Uploaded Document: {d['name']} ({d['chunks_count']} indexed sections, {d['total_chars']} characters)"
+                ))
+            return {
+                "chunks": chunks,
+                "hits": [(i, 1.0) for i in range(len(chunks))],
+                "trace": [f"retrieve: direct document inventory ({len(chunks)} docs)"],
+                "latency_ms": {"retrieve": 1},
+            }
+
+        # 2. Resolve document filter (either from state or extracted from question)
+        resolved_doc = store.resolve_document_name(doc_filter) if doc_filter else None
+        if not resolved_doc:
+            inv = store.get_document_inventory()
+            for d in inv:
+                d_name = d["name"]
+                if _clean_doc_string(d_name) and _clean_doc_string(d_name) in _clean_doc_string(question):
+                    resolved_doc = d_name
+                    break
+
+        # 3. Direct document summarization bypass
+        is_summary = any(w in q_lower for w in ["summarize", "summary", "overview", "what is this", "explain", "outline", "about"])
+        if resolved_doc and is_summary:
+            doc_chunks = store.get_document_chunks(resolved_doc)
+            if doc_chunks:
+                selected_chunks = doc_chunks[:TOP_K]
+                return {
+                    "chunks": selected_chunks,
+                    "hits": [(i, 1.0) for i in range(len(selected_chunks))],
+                    "trace": [f"retrieve: direct summary chunks for {resolved_doc} ({len(selected_chunks)} chunks)"],
+                    "latency_ms": {"retrieve": 1},
+                }
+
+        # 4. Standard semantic search
+        results = store.search(state["query"], embed_fn, k=TOP_K, doc_filter=resolved_doc)
+        filter_str = f" [filter: {resolved_doc}]" if resolved_doc else ""
         return {
             "chunks": [c for c, _ in results],
             "hits": [(i, s) for i, (c, s) in enumerate(results)],
@@ -84,11 +150,29 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
 
     def grade(state: RAGState) -> RAGState:
         t0 = time.perf_counter()
-        best = max((s for _, s in state["hits"]), default=0.0)
-        if best < RELEVANCE_FLOOR:
+        chunks = state.get("chunks", [])
+        if not chunks:
+            return {
+                "verdict": "none",
+                "trace": ["grade: none (0 chunks retrieved)"],
+                "latency_ms": {"grade": 0},
+            }
+
+        best = max((s for _, s in state.get("hits", [])), default=0.0)
+        doc_filter = state.get("doc_filter")
+
+        # Automatically relevant if direct document target matched or meta-query hit
+        if best >= 0.99 or (doc_filter and len(chunks) > 0):
+            return {
+                "verdict": "relevant",
+                "trace": [f"grade: relevant (direct match / targeted doc: {best:.2f})"],
+                "latency_ms": {"grade": 1},
+            }
+
+        if best < 0.25:
             verdict = "none"
         else:
-            context = "\n\n".join(c.text for c in state["chunks"][:3])
+            context = "\n\n".join(c.text for c in chunks[:3])
             verdict = llm(
                 "You are grading retrieved context for a question-answering system.\n"
                 "Does the CONTEXT contain enough information to answer the QUESTION, "
@@ -96,6 +180,7 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
                 f"QUESTION: {state['question']}\n\nCONTEXT:\n{context}"
             ).strip().upper()
             verdict = "relevant" if verdict.startswith("YES") else "none"
+
         return {
             "verdict": verdict,
             "trace": [f"grade: {verdict} (best cosine {best:.2f})"],
@@ -123,13 +208,21 @@ def build_graph(store: VectorStore, embed_fn, llm: LLMFn):
         }
 
     def no_answer(state: RAGState) -> RAGState:
+        inv = store.get_document_inventory()
+        if inv:
+            file_names = ", ".join(d["name"] for d in inv)
+            doc_filter = state.get("doc_filter")
+            if doc_filter:
+                msg = f"I searched inside {doc_filter}, but could not find specific details answering that question. You also have {file_names} available."
+            else:
+                msg = f"I searched your uploaded files ({file_names}), but couldn't find details directly answering that. Please ask about specific topics in these files."
+        else:
+            msg = "I do not see any uploaded files in the knowledge base right now. Please upload a file to get started."
+
         return {
-            "answer": (
-                "I couldn't find that in the uploaded documents. "
-                "Try uploading a relevant file first, or rephrase your question."
-            ),
+            "answer": msg,
             "sources": [],
-            "trace": ["no_answer: nothing relevant found - declining gracefully"],
+            "trace": ["no_answer: informative decline with file awareness"],
             "latency_ms": {"synthesize": 0},
         }
 

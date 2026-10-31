@@ -147,8 +147,9 @@ check("no_answer has empty sources", out_no["sources"] == [])
 print("== Tools ==")
 from app.tools import TOOL_DECLARATIONS
 
-check("two tools declared", len(TOOL_DECLARATIONS) == 2)
-check("tool is search_knowledge_base", TOOL_DECLARATIONS[0].name == "search_knowledge_base")
+check("tools declared", len(TOOL_DECLARATIONS) >= 2)
+check("has search_knowledge_base", any(t.name == "search_knowledge_base" for t in TOOL_DECLARATIONS))
+check("has list_uploaded_documents", any(t.name == "list_uploaded_documents" for t in TOOL_DECLARATIONS))
 
 print(f"\n{passed} passed, {failed} failed")
 if __name__ == "__main__":

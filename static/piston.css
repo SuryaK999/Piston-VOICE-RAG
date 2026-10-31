@@ -229,6 +229,28 @@ body {
   background: var(--accent-light);
   border-color: rgba(249, 115, 22, 0.4);
 }
+body.dark-mode .doc-item.active {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.55);
+}
+.doc-active-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  margin-left: 6px;
+  display: inline-block;
+  vertical-align: middle;
+}
+body.dark-mode .doc-active-badge {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.5);
+  color: #fb923c;
+}
 .doc-icon {
   width: 28px;
   height: 28px;

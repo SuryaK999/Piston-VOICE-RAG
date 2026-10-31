@@ -22,10 +22,25 @@ from .tools import TOOL_DECLARATIONS, dispatch_tool
 log = logging.getLogger("live_session")
 
 
-def _live_config() -> types.LiveConnectConfig:
+def _live_config(rag_service=None, active_doc: str | None = None) -> types.LiveConnectConfig:
+    sys_instruction = config.SYSTEM_INSTRUCTION
+    if rag_service and hasattr(rag_service, "store") and rag_service.store.chunks:
+        inventory = rag_service.store.get_document_inventory()
+        inv_lines = [f"- {d['name']} ({d['chunks_count']} sections)" for d in inventory]
+        inventory_str = "\n".join(inv_lines)
+        focus_str = active_doc if active_doc else "Everything (All Documents)"
+        sys_instruction += (
+            f"\n\nCURRENT UPLOADED DOCUMENTS IN YOUR KNOWLEDGE BASE ({len(inventory)} total):\n"
+            f"{inventory_str}\n"
+            f"Active Focused Document Context: {focus_str}\n"
+            "You have direct access to all of these documents. Never claim you cannot see them."
+        )
+    else:
+        sys_instruction += "\n\nCURRENT KNOWLEDGE BASE: No documents uploaded yet. Ask the user to upload files."
+
     return types.LiveConnectConfig(
         response_modalities=["AUDIO"],
-        system_instruction=config.SYSTEM_INSTRUCTION,
+        system_instruction=sys_instruction,
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
@@ -50,9 +65,11 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
     stop = asyncio.Event()
     session_context = {"active_doc": None}
 
+    live_cfg = _live_config(rag_service, active_doc=session_context["active_doc"])
+
     try:
         async with client.aio.live.connect(
-            model=config.LIVE_MODEL, config=_live_config()
+            model=config.LIVE_MODEL, config=live_cfg
         ) as session:
             log.info("Live session opened (model=%s)", config.LIVE_MODEL)
             await _send_json(ws, {"type": "status", "status": "ready"})
@@ -83,8 +100,17 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
                             if data.get("type") == "ping":
                                 await _send_json(ws, {"type": "pong"})
                             elif data.get("type") == "set_context":
-                                session_context["active_doc"] = data.get("doc_name") or None
-                                log.info("Client context filter set to: %s", session_context["active_doc"])
+                                raw_doc = data.get("doc_name") or None
+                                resolved = None
+                                if raw_doc and hasattr(rag_service, "store"):
+                                    resolved = rag_service.store.resolve_document_name(raw_doc)
+                                session_context["active_doc"] = resolved
+                                log.info("Client context filter set to: %s (raw=%s)", resolved, raw_doc)
+                                await _send_json(ws, {
+                                    "type": "context_sync",
+                                    "active_doc": resolved,
+                                    "status": "active"
+                                })
                         except Exception:
                             pass
 
@@ -102,9 +128,12 @@ async def handle_voice_session(ws: WebSocket, rag_service) -> None:
                             if msg.tool_call:
                                 for fc in msg.tool_call.function_calls:
                                     log.info("tool call: %s(%s)", fc.name, fc.args)
+                                    detail = (fc.args or {}).get("question", "")
+                                    if fc.name == "list_uploaded_documents":
+                                        detail = "Checking uploaded documents inventory"
                                     await _send_json(ws, {
                                         "type": "tool", "name": fc.name,
-                                        "detail": (fc.args or {}).get("question", ""),
+                                        "detail": detail,
                                         "status": "running",
                                     })
                                     try:

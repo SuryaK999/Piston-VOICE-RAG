@@ -228,7 +228,9 @@ function syncContextToBackend() {
     const activeDoc = activeDocId ? uploadedDocs.find(d => d.id === activeDocId) : null;
     ws.send(JSON.stringify({
       type: 'set_context',
-      doc_name: activeDoc ? activeDoc.name : null
+      doc_name: activeDoc ? activeDoc.name : null,
+      total_docs: uploadedDocs.length,
+      docs: uploadedDocs.map(d => d.name)
     }));
   }
 }
@@ -255,6 +257,13 @@ function createDocItem(doc, inDropdown = false) {
   titleDiv.className = 'doc-title';
   titleDiv.title = doc.name;
   titleDiv.textContent = doc.name;
+
+  if (isActive) {
+    const activeBadge = document.createElement('span');
+    activeBadge.className = 'doc-active-badge';
+    activeBadge.textContent = 'FOCUSED';
+    titleDiv.appendChild(activeBadge);
+  }
 
   const metaDiv = document.createElement('div');
   metaDiv.className = 'doc-meta';
@@ -394,18 +403,24 @@ async function loadDocuments() {
 }
 
 async function selectDoc(id) {
-  activeDocId = id;
+  // Toggle: clicking the already focused document toggles back to Everything
+  if (activeDocId === id) {
+    activeDocId = null;
+  } else {
+    activeDocId = id;
+  }
+
   if (window.pistonDB) {
-    if (id) {
-      await window.pistonDB.setSetting('activeDocId', id);
+    if (activeDocId) {
+      await window.pistonDB.setSetting('activeDocId', activeDocId);
     } else {
       await window.pistonDB.deleteSetting('activeDocId');
     }
   }
   
-  if (id) {
-    const doc = uploadedDocs.find(d => d.id === id);
-    showToast(`Context focused: ${doc ? doc.name : 'Document'}`, 'info');
+  if (activeDocId) {
+    const doc = uploadedDocs.find(d => d.id === activeDocId);
+    showToast(`Focused on: ${doc ? doc.name : 'Document'}`, 'info');
   } else {
     showToast('Context: Everything (All Documents)', 'info');
   }
@@ -660,15 +675,17 @@ function onTranscript(role, text, isFinal) {
 }
 
 function onToolEvent(ev) {
+  const isDocList = ev.name === 'list_uploaded_documents';
+
   if (ev.status === 'running') {
-    setState('searching', 'Searching...', 'Connecting to knowledge base');
+    setState('searching', isDocList ? 'Checking inventory...' : 'Searching...', isDocList ? 'Inspecting knowledge base files' : 'Connecting to knowledge base');
     
     const chip = document.createElement('div');
     chip.className = 'trace-chip';
     chip.id = 'pending-tool';
     chip.innerHTML = `
-      <div class="trace-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Searching context...</div>
-      <div class="trace-body">${ev.detail || 'Extracting relevant passages'}</div>
+      <div class="trace-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${isDocList ? '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' : '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'}</svg> ${isDocList ? 'Checking knowledge base...' : 'Searching context...'}</div>
+      <div class="trace-body">${ev.detail || (isDocList ? 'Inspecting uploaded document inventory' : 'Extracting relevant passages')}</div>
     `;
     DOM.transcript.appendChild(chip);
   } else {
@@ -676,10 +693,18 @@ function onToolEvent(ev) {
     if (pending) {
       pending.removeAttribute('id');
       const sourcesCount = ev.sources ? ev.sources.length : 0;
-      pending.innerHTML = `
-        <div class="trace-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Searched context • ${sourcesCount} relevant passages</div>
-        <div class="trace-body">"${ev.detail}"</div>
-      `;
+      if (isDocList) {
+        const fileNames = ev.sources && ev.sources.length ? ev.sources.join(', ') : 'No documents uploaded yet';
+        pending.innerHTML = `
+          <div class="trace-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Verified knowledge base • ${sourcesCount} documents</div>
+          <div class="trace-body">${fileNames}</div>
+        `;
+      } else {
+        pending.innerHTML = `
+          <div class="trace-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Searched context • ${sourcesCount} relevant passages</div>
+          <div class="trace-body">"${ev.detail}"</div>
+        `;
+      }
     }
   }
   DOM.transcript.scrollTop = DOM.transcript.scrollHeight;
