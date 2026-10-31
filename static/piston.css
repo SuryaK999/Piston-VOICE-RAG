@@ -267,6 +267,7 @@ body.dark-mode .doc-active-badge {
 .doc-icon.pdf { background: #ef4444; }
 .doc-icon.txt { background: #3b82f6; }
 .doc-icon.md { background: #64748b; }
+.doc-icon.doc, .doc-icon.docx { background: #2563eb; }
 
 .doc-info { flex: 1; min-width: 0; }
 .doc-title {

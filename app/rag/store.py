@@ -43,6 +43,10 @@ class VectorStore:
             return
         texts = [f"{c.doc} - {c.section}\n{c.text}" for c in chunks]
         vecs = embed_fn(texts, task_type="RETRIEVAL_DOCUMENT").astype(np.float32)
+        if vecs.shape[0] != len(chunks):
+            chunks = chunks[:vecs.shape[0]]
+        if not chunks or vecs.shape[0] == 0:
+            return
         self.index.add(vecs)
         self.chunks.extend(chunks)
         if self.vectors is None:
@@ -62,8 +66,12 @@ class VectorStore:
         self.chunks = [self.chunks[i] for i in keep_indices]
         self.index = faiss.IndexFlatIP(self.dim)
         if keep_indices and self.vectors is not None:
-            self.vectors = self.vectors[keep_indices]
-            self.index.add(self.vectors.astype(np.float32))
+            valid_keep = [i for i in keep_indices if i < len(self.vectors)]
+            if valid_keep:
+                self.vectors = self.vectors[valid_keep]
+                self.index.add(self.vectors.astype(np.float32))
+            else:
+                self.vectors = None
         else:
             self.vectors = None
         return removed_count

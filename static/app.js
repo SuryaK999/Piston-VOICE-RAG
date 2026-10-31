@@ -224,6 +224,7 @@ function getIconType(name) {
   const ext = (name || '').split('.').pop().toLowerCase();
   if (ext === 'pdf') return 'pdf';
   if (ext === 'md') return 'md';
+  if (ext === 'doc' || ext === 'docx') return 'doc';
   return 'txt';
 }
 

@@ -8,7 +8,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 LIVE_MODEL = os.getenv("LIVE_MODEL", "gemini-3.8-live")
 TEXT_MODEL = os.getenv("TEXT_MODEL", "gemini-flash-lite-latest")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2")
 VOICE_NAME = os.getenv("VOICE_NAME", "Kore")
 
 SYSTEM_INSTRUCTION = """You are Piston, a powerful, accurate voice AI assistant that answers questions \
